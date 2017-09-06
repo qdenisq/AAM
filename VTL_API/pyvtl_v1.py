@@ -93,6 +93,7 @@ VTL.vtlGetTractParamInfo(tract_param_names,
 
 tract_param_max = list(tract_param_max)
 tract_param_min = list(tract_param_min)
+tract_param_neutral = list(tract_param_neutral)
 
 # print('Vocal tract parameters: "%s"' % tract_param_names.value.decode())
 # print('Vocal tract parameter minima: ' + str(list(tract_param_min)))
@@ -114,19 +115,19 @@ VTL.vtlGetGlottisParamInfo(glottis_param_names,
 
 glottis_param_max = list(glottis_param_max)
 glottis_param_min = list(glottis_param_min)
-
-"""
-input:
-    - tract_params : list of lists of vocal tract parameters in range [0.0 : 1.0]
-    - glottis_params : list of lists of glottis parameters
-    - duration : duration for audio output in seconds
-
-output:
-    - audio : lits of doubles in range [-1.0 : 1.0]
-"""
+glottis_param_neutral = list(glottis_param_neutral)
 
 
-def synth_block(tract_params_norm, glottis_params_norm, frame_rate = 200.0):
+def synth_block(tract_params_norm, glottis_params_norm, frame_rate=200.0):
+    """
+    input:
+        - tract_params : list of lists of vocal tract parameters in range [0.0 : 1.0]
+        - glottis_params : list of lists of glottis parameters
+        - duration : duration for audio output in seconds
+
+    output:
+        - audio : lits of doubles in range [-1.0 : 1.0]
+    """
     if len(tract_params_norm) != len(glottis_params_norm):
         print('number of tract and glottis parameters don\'t match : %s ; %s',
               len(tract_params_norm), len(glottis_params_norm))
@@ -187,7 +188,7 @@ def synth_block(tract_params_norm, glottis_params_norm, frame_rate = 200.0):
         raise ValueError('Error in vtlSynthBlock! Errorcode: %i' % failure)
 
     # destroy current state of VTL and free memory
-    VTL.vtlClose()
+
 
     return audio
 
