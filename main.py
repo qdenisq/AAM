@@ -56,9 +56,60 @@ def test_2():
         wavfile.write('Data/a_{0}.wav'.format(i), 22050, wav_int)
         print "{0} out of {1}".format(i + 1, len(new_cfs))
 
+    # test for a
+
+def test_a():
+    import ctypes
+
+    shape_name = ctypes.c_char_p(b'u')
+    params_a = pyvtl.TRACT_PARAM_TYPE()
+    failure = pyvtl.VTL.vtlGetTractParams(shape_name, ctypes.byref(params_a))
+    if failure != 0:
+        raise ValueError('Error in vtlGetTractParams! Errorcode: %i' % failure)
+
+    num_frames = 200
+    tract_params = []
+    glottis_params = []
+
+    params_a = [(params_a[i] - pyvtl.tract_param_min[i]) / (pyvtl.tract_param_max[i] - pyvtl.tract_param_min[i]) \
+                for i in range(len(list(params_a)))]
+
+    glottis_params_norm = [(pyvtl.glottis_param_neutral[i] - pyvtl.glottis_param_min[i]) / (
+    pyvtl.glottis_param_max[i] - pyvtl.glottis_param_min[i]) \
+                           for i in range(len(list(pyvtl.glottis_param_neutral)))]
+
+    initial_cf = params_a + glottis_params_norm
+    tract_params_names = list(pyvtl.tract_param_names.value.decode().split())
+    print tract_params_names
+    # fix TTX and TTY
+    fixed_params_values = []
+    fixed_param_idx = []
+    # fix all but TTX and TTY
+    for i in range(len(tract_params_names)):
+        if i not in [11, 12]:
+            fixed_params_values.append(initial_cf[i])
+            fixed_param_idx.append(i)
+    print fixed_param_idx
+    babbler = Babbler()
+
+    # babbler.fixed_params_values = fixed_params_values
+    # babbler.fixed_params_idx = fixed_param_idx
+    mfccs = load_obj("Obj/u.pkl")
+    babbler.learn(mfccs, "u", dump=True)
+
+# generate_training_data('a', sigma=0.01)
+#
 babbler = Babbler()
-mfccs = load_obj("Obj/mfccs_a.pkl")
-babbler.learn(mfccs)
+mfccs = load_obj("Obj/mfcc_a.pkl")
+babbler.learn(mfccs, "a", dump=True)
+
+test_res("a", 4 ,5)
+
+
+
+# test_a()
+
+
 #
 # babbler.gmm_weights=[0.8,0.2]
 # mean = pyvtl.tract_param_neutral+pyvtl.glottis_param_neutral

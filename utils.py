@@ -7,6 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import speechpy
 import librosa
+from scipy.stats import multivariate_normal
+
+from mpl_toolkits.mplot3d import Axes3D
 
 import VTL_API.pyvtl_v1 as pyvtl
 
@@ -55,20 +58,20 @@ def synthesize_static_sound(cf, duration=0.5, frame_rate=200):
     return audio
 
 
-def create_static_sound_data(cf, sigma=0.003, num_samples=500, folder="Data"):
-
-    test_cf = pyvtl.tract_param_neutral + pyvtl.glottis_param_neutral
-    max_params = pyvtl.tract_param_max + pyvtl.glottis_param_max
-    min_params = pyvtl.tract_param_min + pyvtl.glottis_param_min
-    test_cf = [(test_cf[i] - min_params[i]) / (max_params[i] - min_params[i])
-               for i in range(len(test_cf))]
+def create_static_sound_data(cf, name, sigma=0.003, num_samples=500, folder="Data"):
+    #
+    # test_cf = pyvtl.tract_param_neutral + pyvtl.glottis_param_neutral
+    # max_params = pyvtl.tract_param_max + pyvtl.glottis_param_max
+    # min_params = pyvtl.tract_param_min + pyvtl.glottis_param_min
+    # test_cf = [(test_cf[i] - min_params[i]) / (max_params[i] - min_params[i])
+    #            for i in range(len(test_cf))]
     fixed_params = range(24, 30)
-    new_cfs = random_choice_articulatory_space(test_cf, sigma, num_samples, fixed_params)
+    new_cfs = random_choice_articulatory_space(cf, sigma, num_samples, fixed_params)
     for i in range(len(new_cfs)):
         audio = synthesize_static_sound(new_cfs[i])
         wav = np.array(audio)
         wav_int = np.int16(wav * (2 ** 15 - 1))
-        wavfile.write('{0}/a_{1}.wav'.format(folder, i), 22050, wav_int)
+        wavfile.write('{0}/{1}_{2}.wav'.format(folder, name, i), 22050, wav_int)
         print "{0} out of {1}".format(i + 1, len(new_cfs))
     return
 
@@ -82,12 +85,102 @@ def calc_mfcc_from_vowel(signal, fs=22050):
     return mean_mfcc
 
 
-def calc_mfcc_from_static_data(directory='Data'):
+def calc_mfcc_from_static_data(filename, directory='Data'):
     fnames = get_file_list(directory)
     mfccs = [calc_mfcc_from_vowel(wav.read(os.path.join(directory, file_name))[1]) for file_name in fnames]
     print len(mfccs)
-    save_obj(mfccs, "mfccs_a", directory="Obj")
+    save_obj(mfccs, filename, directory="Obj")
     return mfccs
+
+
+def plot_gmm_3d(components_list, axes_names, axes_idx, targets=[], best_match=[]):
+    x = np.linspace(0, 1, 200)
+    y = np.linspace(0, 1, 200)
+    X, Y = np.meshgrid(x, y)
+    pos = np.empty(X.shape + (2,))
+    pos[:, :, 0] = X
+    pos[:, :, 1] = Y
+
+    rvs = []
+    values = np.zeros((len(x), len(y)))
+    for i in range(len(components_list)):
+        weight, center, covariance = components_list[i]
+        c = [center[axes_idx[0]], center[axes_idx[1]]]
+        cov = np.max(covariance) * np.identity(2)
+        rvs.append(multivariate_normal(c, cov))
+        values += weight * rvs[-1].pdf(pos)
+
+    fig = plt.figure()
+    ax = fig.gca(projection="3d")
+    ax.plot_surface(X, Y, values, cmap='viridis', linewidth=0)
+
+    tx, ty = [list(t) for t in zip(*targets)]
+    best_x, best_y = [list(b) for b in zip(*best_match)]
+    ax.scatter(tx, ty, np.max(values), c="red", marker=">", s=100)
+    ax.scatter(best_x, best_y, np.max(values), c="green", marker="o", s=100)
+
+    plt.show()
+#
+def test_res(sound, p0, p1):
+
+    print pyvtl.tract_param_names.value.decode()
+
+    comps = load_obj("Obj/components_{0}.pkl".format(sound))
+    import ctypes
+    shape_name = ctypes.c_char_p(sound)
+    params_a = pyvtl.TRACT_PARAM_TYPE()
+    failure = pyvtl.VTL.vtlGetTractParams(shape_name, ctypes.byref(params_a))
+    if failure != 0:
+        raise ValueError('Error in vtlGetTractParams! Errorcode: %i' % failure)
+
+    num_frames = 200
+    tract_params = []
+    glottis_params = []
+
+    params_a = [(params_a[i] - pyvtl.tract_param_min[i]) / (pyvtl.tract_param_max[i] - pyvtl.tract_param_min[i]) \
+                for i in range(len(list(params_a)))]
+
+    glottis_params_norm = [(pyvtl.glottis_param_neutral[i] - pyvtl.glottis_param_min[i]) / (pyvtl.glottis_param_max[i] - pyvtl.glottis_param_min[i]) \
+                           for i in range(len(list(pyvtl.glottis_param_neutral)))]
+    target = [(params_a[p0], params_a[p1])]
+    initial_cf = params_a + glottis_params_norm
+
+    best_match_cf = load_obj("Obj/best_cf_{0}.pkl".format(sound))
+    best_match = [(best_match_cf[p0], best_match_cf[p1])]
+    print "distance between target and result: ", np.linalg.norm(np.array(best_match_cf)-np.array(initial_cf))
+
+    plot_gmm_3d(comps, ["TBX", "TBY"], [p0, p1], target, best_match)
+
+
+def generate_training_data(sound, sigma=0.001):
+    import random
+    import time
+    import ctypes
+    shape_name = ctypes.c_char_p(sound)
+    params_a = pyvtl.TRACT_PARAM_TYPE()
+    failure = pyvtl.VTL.vtlGetTractParams(shape_name, ctypes.byref(params_a))
+    if failure != 0:
+        raise ValueError('Error in vtlGetTractParams! Errorcode: %i' % failure)
+
+    num_frames = 200
+    tract_params = []
+    glottis_params = []
+
+    params_a = [(params_a[i] - pyvtl.tract_param_min[i]) / (pyvtl.tract_param_max[i] - pyvtl.tract_param_min[i]) \
+                for i in range(len(list(params_a)))]
+
+    glottis_params_norm = [(pyvtl.glottis_param_neutral[i] - pyvtl.glottis_param_min[i]) / (
+    pyvtl.glottis_param_max[i] - pyvtl.glottis_param_min[i]) \
+                           for i in range(len(list(pyvtl.glottis_param_neutral)))]
+
+    cf = params_a + glottis_params_norm
+    create_static_sound_data(cf, sigma=sigma, folder="Data/{0}".format(sound), name=sound)
+
+    calc_mfcc_from_static_data("mfcc_{0}".format(sound), "Data/{0}".format(sound))
+
+
+
+
 
 
 #
@@ -175,3 +268,5 @@ def calc_mfcc_from_static_data(directory='Data'):
 # wav = np.array(audio)
 # wav_int = np.int16(wav * (2 ** 15 - 1))
 # wavfile.write('Obj/a.wav', 22050, wav_int)
+
+
