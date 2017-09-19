@@ -29,13 +29,13 @@ class Babbler:
         self.test_data = []
         return
 
-    def learn(self, test_data, name, dump=False):
+    def learn(self, test_data, name, num_iterations=500, dump=False):
         self.test_data = test_data
 
         min_dist = 100.0
         best_cf = []
         dump_components=[]
-        for i in range(500):
+        for i in range(num_iterations):
             print "iteration {0}:".format(i)
             cf = self.explore()
             dist, weight, center, covariance = self.evaluate(cf)
@@ -45,7 +45,7 @@ class Babbler:
             if dist < min_dist:
                 best_cf = cf
                 min_dist = dist
-                if dist < 2.0:
+                if dist < 1.0:
                     print "converged: ", np.around(cf, decimals=4)
                     utils.save_obj(cf, "cf_{0}".format(name))
 

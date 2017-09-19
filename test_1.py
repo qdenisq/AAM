@@ -73,7 +73,7 @@ counter = 0
 
 np.random.seed(196835)
 # generate k random gausiian components
-k = 70
+k = 5
 
 weights = [1.0]
 weights.extend(uniform(-1.0, 1.0, k))

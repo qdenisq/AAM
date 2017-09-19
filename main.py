@@ -61,7 +61,7 @@ def test_2():
 def test_a():
     import ctypes
 
-    shape_name = ctypes.c_char_p(b'u')
+    shape_name = ctypes.c_char_p(b'a')
     params_a = pyvtl.TRACT_PARAM_TYPE()
     failure = pyvtl.VTL.vtlGetTractParams(shape_name, ctypes.byref(params_a))
     if failure != 0:
@@ -85,29 +85,34 @@ def test_a():
     fixed_params_values = []
     fixed_param_idx = []
     # fix all but TTX and TTY
-    for i in range(len(tract_params_names)):
+    for i in range(len(initial_cf)):
         if i not in [11, 12]:
             fixed_params_values.append(initial_cf[i])
             fixed_param_idx.append(i)
     print fixed_param_idx
     babbler = Babbler()
 
-    # babbler.fixed_params_values = fixed_params_values
-    # babbler.fixed_params_idx = fixed_param_idx
-    mfccs = load_obj("Obj/u.pkl")
-    babbler.learn(mfccs, "u", dump=True)
-
-# generate_training_data('a', sigma=0.01)
-#
-babbler = Babbler()
-mfccs = load_obj("Obj/mfcc_a.pkl")
-babbler.learn(mfccs, "a", dump=True)
-
-test_res("a", 4 ,5)
-
+    babbler.fixed_params_values = fixed_params_values
+    babbler.fixed_params_idx = fixed_param_idx
+    mfccs = load_obj("Obj/mfcc_a.pkl")
+    babbler.learn(mfccs, "a", num_iterations=2000, dump=True)
 
 
 # test_a()
+
+generate_training_data_VV('i', 'i', sigma_1=0.001, sigma_2=0.001)
+generate_training_data_VV('i', 'u', sigma_1=0.001, sigma_2=0.001)
+generate_training_data_VV('i', 'o', sigma_1=0.001, sigma_2=0.001)
+generate_training_data_VV('i', 'a', sigma_1=0.001, sigma_2=0.001)
+#
+# babbler = Babbler()
+# mfccs = load_obj("Obj/mfcc_a.pkl")
+# babbler.learn(mfccs, "a", num_iterations=2000, dump=True)
+
+# test_res("a", 11 ,12)
+
+
+
 
 
 #

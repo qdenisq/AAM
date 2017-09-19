@@ -126,7 +126,7 @@ def synth_block(tract_params_norm, glottis_params_norm, frame_rate=200.0):
         - duration : duration for audio output in seconds
 
     output:
-        - audio : lits of doubles in range [-1.0 : 1.0]
+        - audio : lists of doubles in range [-1.0 : 1.0]
     """
     if len(tract_params_norm) != len(glottis_params_norm):
         print('number of tract and glottis parameters don\'t match : %s ; %s',
@@ -145,9 +145,6 @@ def synth_block(tract_params_norm, glottis_params_norm, frame_rate=200.0):
 
     tube_areas = (ctypes.c_double * (number_frames * number_tube_sections.value))()
     tube_articulators = ctypes.c_char_p(b' ' * number_frames * number_tube_sections.value)
-
-    # Create the vocal tract shapes that slowly change from /a/ to /i/ from the
-    # first to the last frame.
 
     for ii in range(number_frames):
         for jj in range(number_vocal_tract_parameters.value):
