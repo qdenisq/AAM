@@ -100,10 +100,10 @@ def test_a():
 
 # test_a()
 
-generate_training_data_VV('i', 'i', sigma_1=0.001, sigma_2=0.001)
-generate_training_data_VV('i', 'u', sigma_1=0.001, sigma_2=0.001)
-generate_training_data_VV('i', 'o', sigma_1=0.001, sigma_2=0.001)
-generate_training_data_VV('i', 'a', sigma_1=0.001, sigma_2=0.001)
+generate_training_data_VV('o', 'i', sigma_1=0.001, sigma_2=0.001)
+generate_training_data_VV('o', 'u', sigma_1=0.001, sigma_2=0.001)
+generate_training_data_VV('o', 'o', sigma_1=0.001, sigma_2=0.001)
+generate_training_data_VV('o', 'a', sigma_1=0.001, sigma_2=0.001)
 #
 # babbler = Babbler()
 # mfccs = load_obj("Obj/mfcc_a.pkl")
