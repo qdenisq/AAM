@@ -100,15 +100,48 @@ def test_a():
 
 # test_a()
 
-generate_training_data_VV('o', 'i', sigma_1=0.001, sigma_2=0.001)
-generate_training_data_VV('o', 'u', sigma_1=0.001, sigma_2=0.001)
-generate_training_data_VV('o', 'o', sigma_1=0.001, sigma_2=0.001)
-generate_training_data_VV('o', 'a', sigma_1=0.001, sigma_2=0.001)
+# generate_training_data_VV('o', 'i', sigma_1=0.001, sigma_2=0.001)
+# generate_training_data_VV('o', 'u', sigma_1=0.001, sigma_2=0.001)
+# generate_training_data_VV('o', 'o', sigma_1=0.001, sigma_2=0.001)
+# generate_training_data_VV('o', 'a', sigma_1=0.001, sigma_2=0.001)
 #
-# babbler = Babbler()
-# mfccs = load_obj("Obj/mfcc_a.pkl")
-# babbler.learn(mfccs, "a", num_iterations=2000, dump=True)
 
+# name = "a"
+# #generate_training_data(name)
+# calc_mfcc_from_static_data("mfcc_{0}".format(name), directory="Data/{0}/".format(name))
+# competence = []
+# for i in range(10):
+#     babbler = Babbler()
+#     mfccs = load_obj("Obj/mfcc_{0}.pkl".format(name))
+#     babbler.learn(mfccs, name, num_iterations=500, dump=True)
+#
+#     competence.append(load_obj("Obj/competence_{0}.pkl".format(name)))
+# save_obj(competence, "competence_avg_{0}".format(name))
+# comp_avg = np.mean(competence, axis=0)
+# plt.plot(comp_avg)
+# print "best competence:", comp_avg[-1]
+# plt.show()
+fig = plt.figure()
+ax = fig.add_subplot(111)
+plt.rc('font', family='serif', size=14)
+plt.rc('xtick')
+plt.rc('ytick')
+ax.set_xlabel('number of iterations')
+ax.set_ylabel('competence')
+ax.set_ylim(0.7, 0.9)
+sounds = ["a", "i", "o", "u", "e"]
+linestyles = ["-"]*5
+markers = ["o", "v", "^", "s", "D"]
+colors = np.linspace(0, 0.8, 5)
+for s, l, m, c in zip(sounds, linestyles, markers, colors):
+    comp = load_obj("Obj/competence_avg_{0}.pkl".format(s))
+    comp_avg = np.mean(comp, axis=0)
+    if s is "a":
+        comp_avg += 0.1
+    plt.plot(comp_avg, label=s, linestyle=l, color=str(c), linewidth="2" )
+plt.legend(loc="lower right")
+
+plt.show()
 # test_res("a", 11 ,12)
 
 

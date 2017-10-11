@@ -71,30 +71,48 @@ counter = 0
 # print "number of rejected samples: ", counter
 # plt.show()
 
+
 def test_sampling():
-    from numpy.random import multivariate_normal
+    from scipy.stats import multivariate_normal
     np.random.seed(196835)
     # generate k random gausiian components
-    k = 5
+    k = 6
     counter = 0
     weights = [1.0]
-    weights.extend(uniform(-1.0, 1.0, k))
+    weights.extend(uniform(-1., 1., k))
     print "weights: ", weights
     means = uniform(size=k)
-    sigmas = uniform(0.01, 0.03, k)
+    sigmas = uniform(0.03, 0.07, k)
+    #
+    # means=[0.5, 0.5]
+    # sigmas=[0.1, 0.05]
+    # weights=[1.0, 1.0, -0.5]
+
+    print "means:", means
+    #  normalize weights
+    pos_idx = [j for j, e in enumerate(weights) if e > 0]
+    neg_idx = [j for j, e in enumerate(weights) if e < 0]
+    cumsum = np.cumsum([weights[j] for j in pos_idx])
+    pos_sum = cumsum[-1]
+    for i in range(len(weights)):
+        weights[i] /= pos_sum
+    print "weights normed:", weights
 
     generator = [lambda: uniform()]
     generator.extend([lambda i=i: normal(means[i], sigmas[i]) for i in range(k)])
 
     pdfs = [lambda x: weights[0]]
+    cdfs = [lambda x: weights[0]*x]
     for i in range(k):
-        pdfs.append(lambda x, i=i: weights[i+1]*multivariate_normal.pdf(x, means[i], sigmas[i]))
+        pdfs.append(lambda x, i=i: weights[i+1]*multivariate_normal.pdf(x, mean=means[i], cov=sigmas[i]**2))
+        cdfs.append(lambda x, i=i: weights[i+1]*norm.cdf(x, loc=means[i], scale=sigmas[i]))
     # pdfs.extend([lambda x, i=i: norm.pdf(x, means[i], sigmas[i]) for i in range(k)])
     pos_idx = [j for j, e in enumerate(weights) if e > 0]
     cumsum = np.cumsum([weights[j] for j in pos_idx])
     samples = []
+
     t0 = time.time()
-    for i in range(1000):
+    for i in range(2000):
         #     generate from positive component
         accepted = False
         while not accepted:
@@ -109,23 +127,52 @@ def test_sampling():
                 continue
             # rv = weights[0]*uniform() if idx is 0 else normal(means[idx-1], sigmas[idx-1])
             # find probability for given rnd number
+            # calc pdf of positive components
+            p_pos = sum([pdfs[j](rv) for j in pos_idx])
+            p_neg = sum([pdfs[j](rv) for j in neg_idx])
             p = sum([pdfs[j](rv) for j in range(len(pdfs))])
-            if uniform() < p:
+            if uniform(0.0, p_pos) > -1.*p_neg:
                 accepted = True
             counter += 1
         samples.append(rv)
     print "time elapsed: ", time.time()-t0
     # plot
+    plt.rc('font', family='serif', size=14)
+    plt.rc('xtick')
+    plt.rc('ytick')
+
+    fig = plt.figure(figsize=(8, 3))
+    ax = fig.add_subplot(1, 1, 1)
+
+    ax.set_xlabel('x')
+    # ax.set_ylabel('f(x)')
+
     x = np.linspace(0, 1, 1000)
     res = weights[0] * np.ones(1000)
-    plt.plot(x, res, linestyle="--")
+    plt.rcParams['lines.color']='gray'
+    plt.rcParams['lines.linewidth']=1
+    plt.plot(x, res, linestyle="--", color='k', label=r"$w_i \mathcal{N}(x | \mu_i,\Sigma_i)$")
     for i in range(0, k):
-        pdf = weights[i+1] * mlab.normpdf(x, means[i], sigmas[i])
+        pdf = weights[i+1] * multivariate_normal.pdf(x, means[i], sigmas[i]**2)
         res += pdf
-        plt.plot(x, pdf, linestyle="--")
-    plt.plot(x, res, linewidth="2")
-    plt.hist(samples, normed=1, bins=100, color="blue")
+        plt.plot(x, pdf, linestyle="--", color='k')
+    # for i in range(len(res)):
+        # if res[i] > 1.:
+        #     res[i] = 1.0
+        # if res[i] < 0.:
+        #     res[i] = 0.
+    plt.plot(x, res, linewidth="2", color='k', label=r"$h(x)$")
+    plt.hist(samples, normed=1, bins=100, color='k', alpha=0.5)
+    plt.legend()
     print "number of rejected samples: ", counter
+    #  Kolmogorov smirnov test
+    import scipy.stats
+    cdf = lambda v: [sum(cdf(x) for cdf in cdfs) if 0 < x and x < 1 else 0 for x in v]
+    ks_test_res = scipy.stats.kstest(samples, cdf)
+    print ks_test_res
+    # plt.figure()
+    # plt.hist(samples, bins=100, color='k', normed=1, cumulative=True)
+    # plt.plot(x, cdf(x), color='k')
     plt.show()
 
 
@@ -245,6 +292,19 @@ def pdf(x, w, m, s):
     return sum([w[i] * multivariate_normal.pdf(x, m[i], s[i]) for i in range(len(w))])
 
 
+def fprime(x, w, m, s):
+    fprime = []
+    for i in range(len(x)):
+        fprime_i = sum(
+            [(x[i] - m[j][i]) / (s[j]) * w[j] * multivariate_normal.pdf(x, m[j], s[j]) for j in range(len(w))])
+        fprime.append(fprime_i)
+    return np.array(fprime)
+
+
+def f(x, weight, mean, sigma):
+    return -1. * pdf(x, weight, mean, sigma)
+
+
 # returns smoothed sigmas
 def smooth_gm(s, y):
     sigma_smoothed = [np.sqrt(sigma**2 + y**2/2.) for sigma in s]
@@ -274,70 +334,206 @@ def filter_out_gm(w, m, s, given_idx, given_values):
             idx_rest.append(i)
     return [w[i] for i in idx_rest], [m[i] for i in idx_rest], [s[i] for i in idx_rest]
 
-#  generate gm
-d = 2
-num_clusters = 2
-w, m, s = generate_gm(500, 1, d, num_clusters)
-# plot gm 3d
-if d == 2:
-    plot_gm_3d(w, m, s)
 
-means_1 = [[m[i][0]] for i in range(len(m))]
+def test_gm_optimize():
 
-# conditional gm conditions
-given_idx = [0]
-given_values = [0.8]
-# filter out components based on its low impact
-f_w, f_m, f_s = filter_out_gm(w, m, s, given_idx, given_values)
-# calc conditional gm
-c_w, c_m, c_s = conditional_gm(f_w, f_m, f_s, given_idx, given_values)
-# plot conditional gm
-if d == 2:
-    plt.figure()
-    plot_gm(c_w, c_m, c_s)
+    #  generate gm
+    d = 30
+    num_clusters = 5
+    w, m, s = generate_gm(100, 1, d, num_clusters)
+    # plot gm 3d
+    if d == 2:
+        plot_gm_3d(w, m, s)
 
-# smooth conditional gm
-y = 0.05
-c_s_smoothed = smooth_gm(c_s, y)
-# plot smoothed cond gm
-if d == 2:
-    plot_gm(c_w, c_m, c_s_smoothed)
-# optimize smoothed cond gm
-f = lambda x, w, m, s: -1.*pdf(x, w, m, s)
-initial_guess = [sum([c_w[i]*c_m[i][j] for i in range(len(c_w))])/sum(c_w[i] for i in range(len(c_w))) for j in range(len(c_m[0]))]
-# initial_guess = [0.4]*d
-# print initial_guess
-min_bound = [initial_guess[i] - 0.05 for i in range(len(c_m[0]))]
-max_bound = [initial_guess[i] + 0.05 for i in range(len(c_m[0]))]
-bounds = zip(min_bound, max_bound)
-from scipy.optimize import minimize
-t0 = time.time()
-opt_res = minimize(f, initial_guess, (c_w, c_m, c_s_smoothed), method="L-BFGS-B", bounds=bounds)
-print opt_res.x
-print "elapsed time:", time.time() - t0
-# plot_gm_3d(w, m, s)
-# plot_gm_3d(w, m, s_smoothed)
-#
-# plt.figure()
-# plot_gm(w, means_1, s)
-# plot_gm(w, means_1, s_smoothed)
-plt.show()
+    means_1 = [[m[i][0]] for i in range(len(m))]
 
-# x = np.linspace(0, 1, 100)
-# smoothed = [smooth_gm(value, w, means_1, s, y) for value in x]
-# plt.plot(x, smoothed)
-# plt.show()
+    # conditional gm conditions
+    given_idx = [0]
+    given_values = [0.8]
+    # filter out components based on its low impact
+    f_w, f_m, f_s = filter_out_gm(w, m, s, given_idx, given_values)
+    # print how many components left
+    print "{0} components left out of {1}".format(len(f_w), len(w))
 
-    # plot
-    # x = np.linspace(0, 1, 1000)
-    # res = weights[0] * np.ones(1000)
-    # plt.plot(x, res, linestyle="--")
-    # for i in range(0, k):
-    #     pdf = weights[i + 1] * mlab.normpdf(x, means[i], sigmas[i])
-    #     res += pdf
-    #     plt.plot(x, pdf, linestyle="--")
-    # plt.plot(x, res, linewidth="2")
-    # plt.show()
+    # calc conditional gm
+    c_w, c_m, c_s = conditional_gm(f_w, f_m, f_s, given_idx, given_values)
+    d_reduced = d - len(given_idx)
+    # plot conditional gm
+    if d == 2:
+        plt.figure()
+        plot_gm(c_w, c_m, c_s)
+
+    # smooth conditional gm
+    y = 0.08
+    c_s_smoothed = smooth_gm(c_s, y)
+    # plot smoothed cond gm
+    if d == 2:
+        plot_gm(c_w, c_m, c_s_smoothed)
+    # optimize smoothed cond gm
+
+    print "OPTIMIZATION"
+
+
+
+
+    def hessian(x, w, m, s):
+        return
+
+    # f = lambda x, weight, mean, sigma: -1.*pdf(x, weight, mean, sigma)
+    initial_guess = [sum([c_w[i]*c_m[i][j] for i in range(len(c_w))])/sum(c_w[i] for i in range(len(c_w))) for j in range(d_reduced)]
+    print "initial_guess:", initial_guess
+
+    from scipy.optimize import check_grad
+    print "check_grad:", check_grad(f, fprime, initial_guess, c_w, c_m, c_s_smoothed)
+
+    # from scipy.optimize import approx_fprime
+    # eps = np.sqrt(np.finfo(float).eps)
+    # print "approx_fprime:", approx_fprime(initial_guess, f, eps, c_w, c_m, c_s_smoothed)
+    # print "calc_fprime:", fprime(initial_guess, c_w, c_m, c_s_smoothed)
+
+    # initial_guess = [0.4]*d
+    # print initial_guess
+    min_bound = [initial_guess[i] - 0.2 for i in range(d_reduced)]
+    max_bound = [initial_guess[i] + 0.2 for i in range(d_reduced)]
+    bounds = zip(min_bound, max_bound)
+    from scipy.optimize import minimize
+    from scipy.optimize import fmin_l_bfgs_b
+    t0 = time.time()
+    methods=["L-BFGS-B", "Powell", "Nelder-Mead", "TNC"]
+    opt_res = minimize(f, x0=initial_guess, jac=fprime, method=methods[3], tol=1e-1, args=(c_w, c_m, c_s_smoothed))
+    print "Success:", opt_res.success
+    print "Iterations:", opt_res.nit
+    print "func and fprime evals:", opt_res.nfev
+    print "Result:", opt_res.x
+    print "initial guess:", initial_guess
+    print "elapsed time:", time.time() - t0
+
+    # test func comp cost
+    t0 = time.time()
+    for i in range(opt_res.nfev):
+        f(initial_guess, c_w, c_m, c_s_smoothed)
+    print "time to run f {0} times: {1}".format(opt_res.nfev, time.time()-t0)
+    # plot_gm_3d(w, m, s)
+    # plot_gm_3d(w, m, s_smoothed)
     #
+    # plt.figure()
+    # plot_gm(w, means_1, s)
+    # plot_gm(w, means_1, s_smoothed)
+    plt.show()
+
+    # x = np.linspace(0, 1, 100)
+    # smoothed = [smooth_gm(value, w, means_1, s, y) for value in x]
+    # plt.plot(x, smoothed)
+    # plt.show()
+
+        # plot
+        # x = np.linspace(0, 1, 1000)
+        # res = weights[0] * np.ones(1000)
+        # plt.plot(x, res, linestyle="--")
+        # for i in range(0, k):
+        #     pdf = weights[i + 1] * mlab.normpdf(x, means[i], sigmas[i])
+        #     res += pdf
+        #     plt.plot(x, pdf, linestyle="--")
+        # plt.plot(x, res, linewidth="2")
+        # plt.show()
+        #
 
 # test_optimize()
+# test_sampling()
+
+
+def plot(func, x):
+    plt.rc('font', family='serif', size=14)
+    plt.rc('xtick')
+    plt.rc('ytick')
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+
+    ax.set_xlabel('d')
+    ax.set_ylabel('W(d)')
+    y = func(x)
+    ax.plot(x, y, color='k', ls='solid')
+    plt.show()
+
+from scipy.stats import multivariate_normal
+from mpl_toolkits.mplot3d import Axes3D
+#  g1
+x = np.linspace(0, 1, 200)
+y = np.linspace(0, 1, 200)
+X, Y = np.meshgrid(x, y)
+pos = np.empty(X.shape + (2,))
+pos[:, :, 0] = X
+pos[:, :, 1] = Y
+
+weights=[0.1]
+means = [[0.5, 0.75]]
+sigmas = [0.1]
+k = len(weights)
+rvs = []
+values_g1 = np.zeros((len(x), len(y)))
+for i in range(k):
+    rvs.append(multivariate_normal(means[i], sigmas[i]**2))
+    values_g1 += weights[i] * rvs[-1].pdf(pos)
+fig = plt.figure()
+ax = plt.subplot(141, projection="3d")
+ax.plot_surface(X, Y, values_g1, cmap='viridis', linewidth=0)
+ax.set_xlabel('X axis')
+ax.set_ylabel('Y axis')
+ax.set_zlabel('Z axis')
+ax.set_zlim(0, 5)
+# g2
+x = np.linspace(0, 1, 200)
+y = np.linspace(0, 1, 200)
+X, Y = np.meshgrid(x, y)
+pos = np.empty(X.shape + (2,))
+pos[:, :, 0] = X
+pos[:, :, 1] = Y
+
+weights=[0.05]
+means = [0.5]
+sigmas = [0.05]
+k = len(weights)
+rvs = []
+values_g2 = np.zeros((len(x), len(y)))
+print pos.shape
+print values_g2.shape
+for k in range(len(weights)):
+    for i in range(len(x)):
+        for j in range(len(y)):
+
+            rvs = (multivariate_normal(means[k], sigmas[k]**2))
+            values_g2[i][j] += weights[k] * rvs.pdf(pos[i][j][0])
+ax = plt.subplot(142, projection="3d")
+ax.plot_surface(X, Y, values_g2, cmap='viridis', linewidth=0)
+ax.set_xlabel('X axis')
+ax.set_ylabel('Y axis')
+ax.set_zlabel('Z axis')
+ax.set_zlim(0, 5)
+#  g3 = g1*g2
+x = np.linspace(0, 1, 200)
+y = np.linspace(0, 1, 200)
+X, Y = np.meshgrid(x, y)
+pos = np.empty(X.shape + (2,))
+pos[:, :, 0] = X
+pos[:, :, 1] = Y
+values_g3 = np.zeros((len(x), len(y)))
+for i in range(len(x)):
+    for j in range(len(y)):
+        values_g3[i][j] += values_g1[i][j] * values_g2[i][j]
+ax = plt.subplot(143, projection="3d")
+ax.plot_surface(X, Y, values_g3, cmap='viridis', linewidth=0)
+ax.set_xlabel('X axis')
+ax.set_ylabel('Y axis')
+ax.set_zlabel('Z axis')
+ax.set_zlim(0, 5)
+#  g4 = integrate g3 over Y
+y = np.linspace(0, 1, 200)
+values_g4 = np.zeros(len(y))
+for j in range(len(y)):
+    values_g4[j] += sum(values_g3[j][i] for i in range(len(x)))
+ax = plt.subplot(144)
+ax.plot(y, values_g4)
+ax.set_xlabel('Y axis')
+ax.set_ylabel('Z axis')
+plt.show()
