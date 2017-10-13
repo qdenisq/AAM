@@ -129,7 +129,7 @@ plt.rc('ytick')
 ax.set_xlabel('number of iterations')
 ax.set_ylabel('competence')
 ax.set_ylim(0.7, 0.9)
-sounds = ["a", "i", "o", "u", "e"]
+sounds = [ "i", "o", "u", "e", "a"]
 linestyles = ["-"]*5
 markers = ["o", "v", "^", "s", "D"]
 colors = np.linspace(0, 0.8, 5)

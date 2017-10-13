@@ -456,63 +456,86 @@ def plot(func, x):
     ax.plot(x, y, color='k', ls='solid')
     plt.show()
 
+
+def calc_response(w_1, mu_1, cov_1, w_2, mu_2, cov_2):
+    m = len(mu_1) - len(mu_2)
+    n = len(mu_2)
+    print m, n
+    mu_3 = mu_1[m:]
+    cov_3 = cov_1[m:]
+
+    A = cov_1[:m]
+    a = mu_1[:m]
+
+    B = cov_2
+    b = mu_2
+
+    AB = A + B
+    invAB = np.array([1/v for v in AB])
+    detAB = np.prod(AB)
+
+    absub = a - b
+    c = sum(absub[i]**2 * invAB[i] for i in range(m))
+    z = 1. / np.sqrt(detAB * (2*np.pi)**m) * np.exp(-0.5 * c)
+    print c
+    print np.exp(-0.5 * c)
+    print z
+    w_3 = w_1 * w_2 * z
+    return w_3, mu_3, cov_3
+
+
 from scipy.stats import multivariate_normal
 from mpl_toolkits.mplot3d import Axes3D
 #  g1
-x = np.linspace(0, 1, 200)
-y = np.linspace(0, 1, 200)
+x = np.linspace(0, 1, 100)
+y = np.linspace(0, 1, 100)
 X, Y = np.meshgrid(x, y)
 pos = np.empty(X.shape + (2,))
 pos[:, :, 0] = X
 pos[:, :, 1] = Y
 
-weights=[0.1]
-means = [[0.5, 0.75]]
-sigmas = [0.1]
-k = len(weights)
+weights_1 = [0.3]
+means_1 = [[0.5, 0.55]]
+sigmas_1 = [0.1]
+k = len(weights_1)
 rvs = []
 values_g1 = np.zeros((len(x), len(y)))
 for i in range(k):
-    rvs.append(multivariate_normal(means[i], sigmas[i]**2))
-    values_g1 += weights[i] * rvs[-1].pdf(pos)
+    rvs.append(multivariate_normal(means_1[i], sigmas_1[i]**2))
+    values_g1 += weights_1[i] * rvs[-1].pdf(pos)
 fig = plt.figure()
-ax = plt.subplot(141, projection="3d")
-ax.plot_surface(X, Y, values_g1, cmap='viridis', linewidth=0)
-ax.set_xlabel('X axis')
-ax.set_ylabel('Y axis')
-ax.set_zlabel('Z axis')
-ax.set_zlim(0, 5)
+ax1 = plt.subplot(141, projection="3d")
+ax1.plot_surface(X, Y, values_g1, cmap='viridis', linewidth=0)
+ax1.set_xlabel('X axis')
+ax1.set_ylabel('Y axis')
+ax1.set_zlabel('Z axis')
 # g2
-x = np.linspace(0, 1, 200)
-y = np.linspace(0, 1, 200)
 X, Y = np.meshgrid(x, y)
 pos = np.empty(X.shape + (2,))
 pos[:, :, 0] = X
 pos[:, :, 1] = Y
 
-weights=[0.05]
-means = [0.5]
-sigmas = [0.05]
-k = len(weights)
+weights_2 = [0.05]
+means_2 = [0.75]
+
+sigmas_2 = [0.05]
+k = len(weights_2)
 rvs = []
 values_g2 = np.zeros((len(x), len(y)))
 print pos.shape
 print values_g2.shape
-for k in range(len(weights)):
+for k in range(len(weights_2)):
     for i in range(len(x)):
         for j in range(len(y)):
 
-            rvs = (multivariate_normal(means[k], sigmas[k]**2))
-            values_g2[i][j] += weights[k] * rvs.pdf(pos[i][j][0])
-ax = plt.subplot(142, projection="3d")
-ax.plot_surface(X, Y, values_g2, cmap='viridis', linewidth=0)
-ax.set_xlabel('X axis')
-ax.set_ylabel('Y axis')
-ax.set_zlabel('Z axis')
-ax.set_zlim(0, 5)
+            rvs = (multivariate_normal(means_2[k], sigmas_2[k]**2))
+            values_g2[i][j] += weights_2[k] * rvs.pdf(pos[i][j][0])
+ax2 = plt.subplot(142, projection="3d", sharez=ax1)
+ax2.plot_surface(X, Y, values_g2, cmap='viridis', linewidth=0)
+ax2.set_xlabel('X axis')
+ax2.set_ylabel('Y axis')
+ax2.set_zlabel('Z axis')
 #  g3 = g1*g2
-x = np.linspace(0, 1, 200)
-y = np.linspace(0, 1, 200)
 X, Y = np.meshgrid(x, y)
 pos = np.empty(X.shape + (2,))
 pos[:, :, 0] = X
@@ -521,19 +544,38 @@ values_g3 = np.zeros((len(x), len(y)))
 for i in range(len(x)):
     for j in range(len(y)):
         values_g3[i][j] += values_g1[i][j] * values_g2[i][j]
-ax = plt.subplot(143, projection="3d")
-ax.plot_surface(X, Y, values_g3, cmap='viridis', linewidth=0)
-ax.set_xlabel('X axis')
-ax.set_ylabel('Y axis')
-ax.set_zlabel('Z axis')
-ax.set_zlim(0, 5)
-#  g4 = integrate g3 over Y
-y = np.linspace(0, 1, 200)
+ax3 = plt.subplot(143, projection="3d", sharez=ax1)
+ax3.plot_surface(X, Y, values_g3, cmap='viridis', linewidth=0)
+ax3.set_xlabel('X axis')
+ax3.set_ylabel('Y axis')
+ax3.set_zlabel('Z axis')
+#  g4 = integrate g3 over x
 values_g4 = np.zeros(len(y))
 for j in range(len(y)):
-    values_g4[j] += sum(values_g3[j][i] for i in range(len(x)))
+    values_g4[j] += (sum(values_g3[j][i]* (x[1]-x[0]) for i in range(len(x))))
 ax = plt.subplot(144)
 ax.plot(y, values_g4)
 ax.set_xlabel('Y axis')
 ax.set_ylabel('Z axis')
+ax1.set_zlim(0.0, 2.0)
+# plt.axis('equal')
+
+#  test_calc_response
+w_1 = np.array(weights_1[0])
+mu_1 = np.array(means_1[0])
+cov_1 = np.array([sigmas_1[0]**2]*len(mu_1))
+
+w_2 = np.array(weights_2[0])
+mu_2 = np.array([means_2[0]])
+cov_2 = np.array([sigmas_2[0]**2]*len(mu_2))
+w_3, mu_3, cov_3 = calc_response(w_1, mu_1, cov_1, w_2, mu_2, cov_2)
+
+print w_3, mu_3, cov_3
+
+
+values_to_test = w_3 * multivariate_normal.pdf(y, mu_3, cov_3)
+ax.plot(y, values_to_test)
+
+
+
 plt.show()

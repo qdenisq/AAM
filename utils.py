@@ -6,7 +6,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import speechpy
-import librosa
+# import librosa
 from scipy.stats import multivariate_normal
 
 from mpl_toolkits.mplot3d import Axes3D
