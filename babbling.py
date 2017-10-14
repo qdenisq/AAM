@@ -89,7 +89,6 @@ class Babbler:
         pos_idx = [j for j, e in enumerate(self.gmm_weights) if e >= 0]
         neg_idx = [j for j, e in enumerate(self.gmm_weights) if e < 0]
         cumsum = np.cumsum([self.gmm_weights[j] for j in pos_idx])
-        pos_sum = cumsum[-1]
         accepted = False
         while not accepted:
             # choose a component to generate from
@@ -97,26 +96,15 @@ class Babbler:
             idx = np.searchsorted(cumsum, rv)
             idx = pos_idx[idx]
             # generate rnd number
-            # rv = self.gmm[idx]()
             cf = self.sample(idx)
             if any(v > 1.0 or v < 0.0 for v in cf):
                 continue
-            # rv = weights[0]*uniform() if idx is 0 else normal(means[idx-1], sigmas[idx-1])
             # find probability for given rnd number
             p_pos = sum([self.gmm_pdf[j](cf) for j in pos_idx])
             p_neg = sum([self.gmm_pdf[j](cf) for j in neg_idx])
             # p = sum([self.gmm_pdf[j](cf) for j in range(len(self.gmm_pdf))])
             if uniform(0.0, p_pos) > -1. * p_neg:
                 accepted = True
-
-        # weights_norm = [w/sum(self.gmm_weights) for w in self.gmm_weights]
-        # cumsum = np.cumsum(weights_norm)
-        # rnd = uniform()
-        # idx = np.searchsorted(cumsum, rnd)
-        #
-        # # explore from gmm[idx]
-        # cf = self.sample(idx)
-        # print idx, rnd
         return cf
 
     def sample(self, idx):
@@ -144,7 +132,6 @@ class Babbler:
         new_comp = lambda c=center, cov=covariance: np.random.multivariate_normal(c, cov)
 
         self.gmm_weights.append(w)
-        # self.gmm_weights = [w/sum(self.gmm_weights) for w in self.gmm_weights]
         self.gmm.append(new_comp)
         self.gmm_pdf.append(lambda x, c=center, cov=covariance: multivariate_normal.pdf(x, c, cov))
         print "distance:", distance

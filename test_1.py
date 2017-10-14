@@ -460,7 +460,6 @@ def plot(func, x):
 def calc_response(w_1, mu_1, cov_1, w_2, mu_2, cov_2):
     m = len(mu_1) - len(mu_2)
     n = len(mu_2)
-    print m, n
     mu_3 = mu_1[m:]
     cov_3 = cov_1[m:]
 
@@ -477,9 +476,6 @@ def calc_response(w_1, mu_1, cov_1, w_2, mu_2, cov_2):
     absub = np.subtract(a, b)
     c = sum(absub[i]**2 * invAB[i] for i in range(m))
     z = 1. / np.sqrt(detAB * (2*np.pi)**m) * np.exp(-0.5 * c)
-    print c
-    print np.exp(-0.5 * c)
-    print z
     w_3 = w_1 * w_2 * z
     return w_3, mu_3, cov_3
 
@@ -497,106 +493,99 @@ def calc_response_gm(w_1arr, mu_1arr, cov_1arr, w_2arr, mu_2arr, cov_2arr):
     return w_3arr, mu_3arr, cov_3arr
 
 
-from scipy.stats import multivariate_normal
-from mpl_toolkits.mplot3d import Axes3D
-#  g1
-x = np.linspace(0, 1, 100)
-y = np.linspace(0, 1, 100)
-X, Y = np.meshgrid(x, y)
-pos = np.empty(X.shape + (2,))
-pos[:, :, 0] = X
-pos[:, :, 1] = Y
+def test_transfer_function():
 
-weights_1 = [0.1, 0.05]
-means_1 = [[0.7, 0.35], [0.1, 0.75]]
-sigmas_1 = [[0.01, 0.01], [0.01, 0.01]]
-k = len(weights_1)
-rvs = []
-values_g1 = np.zeros((len(x), len(y)))
-for i in range(k):
-    rvs.append(multivariate_normal(means_1[i], sigmas_1[i]))
-    values_g1 += weights_1[i] * rvs[-1].pdf(pos)
-fig = plt.figure()
-ax1 = plt.subplot(141, projection="3d")
-ax1.plot_surface(X, Y, values_g1, cmap='viridis', linewidth=0)
-ax1.set_xlabel('X axis')
-ax1.set_ylabel('Y axis')
-ax1.set_zlabel('Z axis')
-# g2
-X, Y = np.meshgrid(x, y)
-pos = np.empty(X.shape + (2,))
-pos[:, :, 0] = X
-pos[:, :, 1] = Y
 
-weights_2 = [0.05, 0.1]
-means_2 = [[0.25], [0.7]]
+    from scipy.stats import multivariate_normal
+    from mpl_toolkits.mplot3d import Axes3D
+    #  g1
+    x = np.linspace(0, 1, 100)
+    y = np.linspace(0, 1, 100)
+    X, Y = np.meshgrid(x, y)
+    pos = np.empty(X.shape + (2,))
+    pos[:, :, 0] = X
+    pos[:, :, 1] = Y
 
-sigmas_2 = [[0.005], [0.006]]
-k = len(weights_2)
-rvs = []
-values_g2 = np.zeros((len(x), len(y)))
-print pos.shape
-print values_g2.shape
-for k in range(len(weights_2)):
+    weights_1 = [0.1, 0.05]
+    means_1 = [[0.7, 0.35], [0.1, 0.75]]
+    sigmas_1 = [[0.01, 0.01], [0.01, 0.01]]
+    k = len(weights_1)
+    rvs = []
+    values_g1 = np.zeros((len(x), len(y)))
+    for i in range(k):
+        rvs.append(multivariate_normal(means_1[i], sigmas_1[i]))
+        values_g1 += weights_1[i] * rvs[-1].pdf(pos)
+    fig = plt.figure()
+    ax1 = plt.subplot(141, projection="3d")
+    ax1.plot_surface(X, Y, values_g1, cmap='viridis', linewidth=0)
+    ax1.set_xlabel('X axis')
+    ax1.set_ylabel('Y axis')
+    ax1.set_zlabel('Z axis')
+    # g2
+    X, Y = np.meshgrid(x, y)
+    pos = np.empty(X.shape + (2,))
+    pos[:, :, 0] = X
+    pos[:, :, 1] = Y
+
+    weights_2 = [0.05, 0.1]
+    means_2 = [[0.25], [0.7]]
+
+    sigmas_2 = [[0.005], [0.006]]
+    k = len(weights_2)
+    rvs = []
+    values_g2 = np.zeros((len(x), len(y)))
+    for k in range(len(weights_2)):
+        for i in range(len(x)):
+            for j in range(len(y)):
+
+                rvs = (multivariate_normal(means_2[k], sigmas_2[k]))
+                values_g2[i][j] += weights_2[k] * rvs.pdf(pos[i][j][0])
+    ax2 = plt.subplot(142, projection="3d", sharez=ax1)
+    ax2.plot_surface(X, Y, values_g2, cmap='viridis', linewidth=0)
+    ax2.set_xlabel('X axis')
+    ax2.set_ylabel('Y axis')
+    ax2.set_zlabel('Z axis')
+    #  g3 = g1*g2
+    X, Y = np.meshgrid(x, y)
+    pos = np.empty(X.shape + (2,))
+    pos[:, :, 0] = X
+    pos[:, :, 1] = Y
+    values_g3 = np.zeros((len(x), len(y)))
     for i in range(len(x)):
         for j in range(len(y)):
-
-            rvs = (multivariate_normal(means_2[k], sigmas_2[k]))
-            values_g2[i][j] += weights_2[k] * rvs.pdf(pos[i][j][0])
-ax2 = plt.subplot(142, projection="3d", sharez=ax1)
-ax2.plot_surface(X, Y, values_g2, cmap='viridis', linewidth=0)
-ax2.set_xlabel('X axis')
-ax2.set_ylabel('Y axis')
-ax2.set_zlabel('Z axis')
-#  g3 = g1*g2
-X, Y = np.meshgrid(x, y)
-pos = np.empty(X.shape + (2,))
-pos[:, :, 0] = X
-pos[:, :, 1] = Y
-values_g3 = np.zeros((len(x), len(y)))
-for i in range(len(x)):
+            values_g3[i][j] += values_g1[i][j] * values_g2[i][j]
+    ax3 = plt.subplot(143, projection="3d", sharez=ax1)
+    ax3.plot_surface(X, Y, values_g3, cmap='viridis', linewidth=0)
+    ax3.set_xlabel('X axis')
+    ax3.set_ylabel('Y axis')
+    ax3.set_zlabel('Z axis')
+    #  g4 = integrate g3 over x
+    values_g4 = np.zeros(len(y))
     for j in range(len(y)):
-        values_g3[i][j] += values_g1[i][j] * values_g2[i][j]
-ax3 = plt.subplot(143, projection="3d", sharez=ax1)
-ax3.plot_surface(X, Y, values_g3, cmap='viridis', linewidth=0)
-ax3.set_xlabel('X axis')
-ax3.set_ylabel('Y axis')
-ax3.set_zlabel('Z axis')
-#  g4 = integrate g3 over x
-values_g4 = np.zeros(len(y))
-for j in range(len(y)):
-    values_g4[j] += (sum(values_g3[j][i]* (x[1]-x[0]) for i in range(len(x))))
-ax = plt.subplot(144)
-ax.plot(y, values_g4)
-ax.set_xlabel('Y axis')
-ax.set_ylabel('Z axis')
-ax1.set_zlim(0.0, 2.0)
-# plt.axis('equal')
+        values_g4[j] += (sum(values_g3[j][i]* (x[1]-x[0]) for i in range(len(x))))
+    ax = plt.subplot(144)
+    ax.plot(y, values_g4)
+    ax.set_xlabel('Y axis')
+    ax.set_ylabel('Z axis')
+    ax1.set_zlim(0.0, 2.0)
+    # plt.axis('equal')
 
-#  test_calc_response
-w_1 = np.array(weights_1[0])
-mu_1 = np.array(means_1[0])
-cov_1 = np.array(sigmas_1[0])
+    #  test_calc_response
+    w_1 = np.array(weights_1[0])
+    mu_1 = np.array(means_1[0])
+    cov_1 = np.array(sigmas_1[0])
 
-w_2 = np.array(weights_2[0])
-mu_2 = np.array(means_2[0])
-cov_2 = np.array(sigmas_2[0])
-w_3, mu_3, cov_3 = calc_response(w_1, mu_1, cov_1, w_2, mu_2, cov_2)
+    w_2 = np.array(weights_2[0])
+    mu_2 = np.array(means_2[0])
+    cov_2 = np.array(sigmas_2[0])
+    w_3, mu_3, cov_3 = calc_response(w_1, mu_1, cov_1, w_2, mu_2, cov_2)
 
-print w_3, mu_3, cov_3
+    w3arr, m3arr, c3arr = calc_response_gm(weights_1, means_1, sigmas_1, weights_2, means_2, sigmas_2)
 
-w3arr, m3arr, c3arr = calc_response_gm(weights_1, means_1, sigmas_1, weights_2, means_2, sigmas_2)
+    values_to_test = np.zeros(len(y))
+    for w_3, mu_3, cov_3 in zip(w3arr, m3arr, c3arr):
+        values_to_test += w_3 * multivariate_normal.pdf(y, mu_3, cov_3)
+    ax.plot(y, values_to_test)
+    plt.show()
 
-values_to_test = np.zeros(len(y))
-for w_3, mu_3, cov_3 in zip(w3arr, m3arr, c3arr):
-    values_to_test += w_3 * multivariate_normal.pdf(y, mu_3, cov_3)
-
-
-
-
-# values_to_test = w_3 * multivariate_normal.pdf(y, mu_3, cov_3)
-ax.plot(y, values_to_test)
-
-
-
-plt.show()
+test_transfer_function()
