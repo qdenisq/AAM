@@ -2,9 +2,8 @@ from numpy.random import normal, uniform
 from scipy.stats import multivariate_normal
 import numpy as np
 import utils
-import copy
-
 from scipy.io import wavfile
+
 
 class Babbler:
     def __init__(self, num_params=30, fixed_params_idx=list(range(24, 30)),
@@ -29,14 +28,18 @@ class Babbler:
 
         self.test_data = []
         self.target = []
-        self.norm_coef = 0
+        self.mfcc_max = 0.0
+        self.mfcc_min = 0.0
+
+        self.neural_map = None
         return
 
     def learn(self, test_data, name, num_iterations=500, dump=False):
         self.test_data = test_data
         self.target = np.mean(np.array(test_data), axis=0)
-        self.norm_coef = max(self.target)
-        self.target = np.array([v / self.norm_coef for v in self.target])
+        self.mfcc_max = max(self.target)
+        self.mfcc_min = min(self.target)
+        self.target = np.array([ (v - self.mfcc_min) / (self.mfcc_max - self.mfcc_min) for v in self.target])
 
         min_dist = 100.0
         best_cf = []
@@ -47,7 +50,13 @@ class Babbler:
             cf = self.explore()
             dist, mfcc_norm, weight, center, covariance = self.evaluate(cf)
 
-
+            # update neural map
+            if self.neural_map:
+                weight = 1.0
+                mean = np.array(center)
+                mean = np.append(mean, mfcc_norm)
+                cov = [0.003]*len(mean)
+                self.neural_map.add(weight, mean, cov)
 
             if dump is True:
                 dump_components.append((weight, center, covariance))
@@ -94,7 +103,7 @@ class Babbler:
             # choose a component to generate from
             rv = uniform(low=0.0, high=cumsum[-1], size=1)
             idx = np.searchsorted(cumsum, rv)
-            idx = pos_idx[idx]
+            idx = pos_idx[idx[0]]
             # generate rnd number
             cf = self.sample(idx)
             if any(v > 1.0 or v < 0.0 for v in cf):
@@ -120,7 +129,7 @@ class Babbler:
         audio = np.array(utils.synthesize_static_sound(cf))
         audio_int = np.int16(audio * (2 ** 15 - 1))
         mfcc = np.array(utils.calc_mfcc_from_vowel(audio_int))
-        mfcc_norm = mfcc / self.norm_coef
+        mfcc_norm = np.array([ (v - self.mfcc_min) / (self.mfcc_max - self.mfcc_min) for v in mfcc])
         # calc average distance to all units in test_data
         distance = np.linalg.norm(mfcc_norm - self.target)
         # calculate goodness of exploration: sigmoid with zero  at distance 3.0

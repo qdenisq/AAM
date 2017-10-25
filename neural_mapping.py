@@ -20,9 +20,9 @@ class NeuralMap:
            :param cov: covariance matrix
         """
         assert len(mean) == len(cov) == self.dim
-        self.weights = self.weights.append(w)
-        self.means = self.means.append(mean, axis=0)
-        self.covs = self.covs.array(cov, axis=0)
+        self.weights = np.append(self.weights, w)
+        self.means = np.append(self.means, mean, axis=0)
+        self.covs = np.append(self.covs, np.array(cov), axis=0)
         return
 
     def propagate_gm_signal(self, w, m, cov, idx=[]):
