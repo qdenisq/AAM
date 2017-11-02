@@ -494,8 +494,6 @@ def calc_response_gm(w_1arr, mu_1arr, cov_1arr, w_2arr, mu_2arr, cov_2arr):
 
 
 def test_transfer_function():
-
-
     from scipy.stats import multivariate_normal
     from mpl_toolkits.mplot3d import Axes3D
     #  g1
@@ -588,4 +586,53 @@ def test_transfer_function():
     ax.plot(y, values_to_test)
     plt.show()
 
-test_transfer_function()
+# test_transfer_function()
+
+
+def test_som():
+    from som import Som
+    import utils
+    # init som
+    num_input_dim = 13
+    num_output_dim = 2
+    som = Som(num_input_dim,  num_output_dim)
+    num_components = 5
+    for i in range(num_components):
+        w = 1.
+        mu = np.array(uniform(size=num_input_dim+num_output_dim))
+        cov = np.array([0.06]*13)
+        cov = np.append(cov, [0.1]*2)
+        som.add(w, mu, cov)
+
+    print som.weights
+    print som.means
+
+    # load sounds mfccs
+    mfccs_a = utils.load_obj("Obj/mfcc_a.pkl")
+    mfccs_i = utils.load_obj("Obj/mfcc_i.pkl")
+
+    #  prepare data
+    train_data = np.array(mfccs_a)
+    train_data = np.append(train_data, mfccs_i, axis=0)
+
+    max_val = np.amax(train_data)
+    min_val = np.amin(train_data)
+
+    for i in range(len(train_data)):
+        for j in range(len(train_data[i])):
+            train_data[i][j] = (train_data[i][j] - min_val) / (max_val - min_val)
+
+    # train
+    num_trains = 1000
+    n_sigmas = np.linspace(0.2, 0.001, num_trains)
+    for i in range(num_trains):
+        sample = train_data[i % len(train_data)]
+        cov = [0.006]*len(sample)
+        mu = sample
+        neighbour_sigma = n_sigmas[i]
+        som.train([1.], [mu], [cov], neighbour_sigma)
+        print i
+    utils.save_obj(som, "som")
+    return
+
+test_som()

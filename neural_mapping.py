@@ -26,7 +26,7 @@ class NeuralMap:
         return
 
     def propagate_gm_signal(self, w, m, cov, idx=[]):
-        """Propagates the signal through the neural map, signal has a form Gaussian Mixture.
+        """Propagates the signal through the neural map, signal has a form of a Gaussian Mixture.
         Note that output is also GM.
            :param w: array of weighting coefficients
            :param m: array of centers (mean) of the gm components
