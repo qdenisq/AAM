@@ -590,18 +590,18 @@ def test_transfer_function():
 
 
 def test_som():
-    from som import Som
+    from som import GSom
     import utils
     # init som
     num_input_dim = 13
     num_output_dim = 2
-    som = Som(num_input_dim,  num_output_dim)
-    num_components = 5
+    som = GSom(num_input_dim,  num_output_dim)
+    num_components = 10
     for i in range(num_components):
         w = 1.
         mu = np.array(uniform(size=num_input_dim+num_output_dim))
-        cov = np.array([0.06]*13)
-        cov = np.append(cov, [0.1]*2)
+        cov = np.array([0.006]*13)
+        cov = np.append(cov, [0.005]*2)
         som.add(w, mu, cov)
 
     print som.weights
@@ -630,9 +630,91 @@ def test_som():
         cov = [0.006]*len(sample)
         mu = sample
         neighbour_sigma = n_sigmas[i]
-        som.train([1.], [mu], [cov], neighbour_sigma)
-        print i
+        # som.train([1.], [mu], [cov], neighbour_sigma)
+
+    # test and plot response map
+
+    # test a
+    x = np.linspace(0, 1, 20)
+    y = np.linspace(0, 1, 20)
+    X, Y = np.meshgrid(x, y)
+    pos = np.empty(X.shape + (2,))
+    pos[:, :, 0] = X
+    pos[:, :, 1] = Y
+    values = np.zeros((len(x), len(y)))
+    k = len(som.weights)
+    rvs = []
+    for s in range(len(mfccs_a)):
+        sample = train_data[s % len(train_data)]
+        cov = [0.006] * len(sample)
+        mu = sample
+        w, m, c = som.propagate_gm_signal([1.], [mu], [cov])
+        for i in range(len(w)):
+            rvs.append(multivariate_normal(m[i], c[i]))
+            values += w[i] * rvs[-1].pdf(pos)
+
+    fig, ax = plt.subplots()
+    # ax = fig.gca(projection="3d")
+    # ax.plot_surface(X, Y, values, cmap='viridis', linewidth=0)
+    # ax.set_xlabel('X axis')
+    # ax.set_ylabel('Y axis')
+    # ax.set_zlabel('Z axis')
+    # plt.show()
+    ax.pcolormesh(x, y, values)
+    ax.set_title("a")
+
+    # test i
+    values = np.zeros((len(x), len(y)))
+    k = len(som.weights)
+    rvs = []
+    for s in range(len(mfccs_a), len(train_data)):
+        sample = train_data[s % len(train_data)]
+        cov = [0.006] * len(sample)
+        mu = sample
+        w, m, c = som.propagate_gm_signal([1.], [mu], [cov])
+        for i in range(len(w)):
+            rvs.append(multivariate_normal(m[i], c[i]))
+            values += w[i] * rvs[-1].pdf(pos)
+
+    fig, ax = plt.subplots()
+    # ax = fig.gca(projection="3d")
+    # ax.plot_surface(X, Y, values, cmap='viridis', linewidth=0)
+    # ax.set_xlabel('X axis')
+    # ax.set_ylabel('Y axis')
+    # ax.set_zlabel('Z axis')
+    # plt.show()
+    ax.pcolormesh(x, y, values)
+    ax.set_title("i")
+
+
+
+
+    plt.show()
     utils.save_obj(som, "som")
     return
 
-test_som()
+# test_som()
+
+def test_som_1():
+    np.random.seed(1996)
+    from som import Som
+    raw_data = np.random.randint(0, 255, (3, 10))
+    # raw_data = np.array([[255, 0, 0], [0, 255, 0], [0, 0, 255]])
+    network_dimensions = np.array([10, 10])
+    n_iterations = 2000
+    init_learning_rate = 0.03
+    # establish size variables based on data
+    m = raw_data.shape[0]
+    n = raw_data.shape[1]
+
+    data = raw_data / 255.
+
+    som = Som(network_dimensions, m)
+    plt.figure()
+    plt.imshow(som.net)
+    som.train(data, n_iterations, init_learning_rate)
+
+    plt.figure()
+    plt.imshow(som.net)
+    plt.show()
+test_som_1()

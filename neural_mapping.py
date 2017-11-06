@@ -9,8 +9,8 @@ class NeuralMap:
     def __init__(self, dim):
         self.dim = dim
         self.weights = np.array([])
-        self.means = np.array([])
-        self.covs = np.array([])
+        self.means = None
+        self.covs = None
         return
 
     def add(self, w, mean, cov):
@@ -21,8 +21,8 @@ class NeuralMap:
         """
         assert len(mean) == len(cov) == self.dim
         self.weights = np.append(self.weights, w)
-        self.means = np.append(self.means, mean, axis=0)
-        self.covs = np.append(self.covs, np.array(cov), axis=0)
+        self.means = [mean] if self.means is None else np.append(self.means, [mean], axis=0)
+        self.covs = [np.array(cov)] if self.covs is None else np.append(self.covs, [cov], axis=0)
         return
 
     def propagate_gm_signal(self, w, m, cov, idx=[]):
@@ -60,7 +60,7 @@ class NeuralMap:
         :return:
         """
 
-        input_idx = idx if idx is not [] else np.array(list(range(len(mu_2))))
+        input_idx = idx if idx else np.array(range(len(mu_2)))
         output_idx = np.array([i not in input_idx for i in range(len(mu_1))])
 
         m = len(input_idx)

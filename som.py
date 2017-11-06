@@ -2,7 +2,7 @@ from neural_mapping import NeuralMap
 import numpy as np
 
 
-class Som(NeuralMap):
+class GSom(NeuralMap):
 
     def __init__(self, num_input_dim, map_dim):
         NeuralMap.__init__(self, num_input_dim + map_dim)
@@ -29,9 +29,64 @@ class Som(NeuralMap):
                     delta_mu = delta_mu * w_3
                 self.means[i][:self.input_dim] += delta_mu
                 # also we need to adjust means of the adjacent components to be selective to this signal as well
-                for j in range(self.weights):
+                for j in range(len(self.weights)):
                     delta_mu = mu_2 - self.means[j][:self.input_dim]
                     if w_3 < 1.:
                         delta_mu = delta_mu * w_3
                     delta_mu *= np.exp(-1. * (np.linalg.norm(self.means[j][self.input_dim:] - mu_3)**2) / neighbour_sigma**2)
                     self.means[j][:self.input_dim] += delta_mu
+
+
+class Som:
+    def __init__(self, network_shape, input_shape):
+        self.network_shape = network_shape
+        self.input_shape = input_shape
+        self.net = np.random.random(np.append(network_shape, input_shape))
+
+        self.radius = max(network_shape) / 2
+        return
+
+    def train(self, input, n_iterations, learning_rate):
+        time_constant = n_iterations / np.log(self.radius)
+        self.learning_rate = learning_rate
+        radius = self.radius
+        for i in range(n_iterations):
+            print "epoch:", i
+            print np.random.randint(0, high=input.shape[1])
+            target = input[:, np.random.randint(0, high=input.shape[1])]
+            bmu, bmu_idx = self.find_bmu(target)
+            self.update_weights(target, bmu_idx, radius, learning_rate)
+            learning_rate = self.decay_learning_rate(i, n_iterations)
+            radius = self.decay_radius(i, time_constant)
+
+    def find_bmu(self, t):
+        min_dist = np.iinfo(np.int).max
+        bmu_idx = None
+        for i in np.ndindex(*self.network_shape):
+            w = self.net[i].reshape(self.input_shape)
+            sq_dist = np.sum((w - t) **2)
+            if sq_dist < min_dist:
+                min_dist = sq_dist
+                bmu_idx = i
+        bmu = self.net[bmu_idx]
+        return (bmu, bmu_idx)
+
+    def decay_radius(self, i, time_constant):
+        return self.radius * np.exp(-i / time_constant)
+
+    def decay_learning_rate(self, i, n_iterations):
+        return self.learning_rate * np.exp(-i / n_iterations)
+
+    def calc_influence(self, dist, radius):
+        return np.exp(-dist / (2. * (radius**2)))
+
+    def update_weights(self, target, bmu_idx, radius, learning_rate):
+
+        for i in np.ndindex(*self.network_shape):
+            dist = np.sum(np.subtract(bmu_idx, i)**2)
+            if dist <= radius**2:
+                influence = self.calc_influence(dist, radius)
+                w = self.net[i]
+                delta_w = learning_rate * influence * (target - w)
+                self.net[i] = w + delta_w
+
