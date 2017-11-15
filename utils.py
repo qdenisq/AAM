@@ -244,6 +244,29 @@ def generate_training_data_VV(sound_1, sound_2, sigma_1=0.001, sigma_2=0.001):
     return
 
 
+def normalize_vector(vec):
+    max_v = vec.max()
+    min_v = vec.min()
+    return [(v - min_v)/(max_v - min_v) for v in vec]
+
+
+def normalize(data, axis=0, norm_by_column=False):
+    if norm_by_column:
+        col_maxes = data.max(axis=axis)
+        col_mins = data.min(axis=axis)
+
+        normed_data = np.apply_along_axis(normalize_vector, axis, data)
+        return normed_data, col_maxes, col_mins
+    else:
+        max_v = data.max()
+        min_v = data.min()
+
+        normed_data = np.true_divide(np.subtract(data, min_v), max_v - min_v)
+        return normed_data, max_v, min_v
+
+
+
+
 
 #
 #

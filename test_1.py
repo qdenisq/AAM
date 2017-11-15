@@ -698,8 +698,12 @@ def test_som():
 def test_som_1():
     np.random.seed(1996)
     from som import Som
-    raw_data = np.random.randint(0, 255, (3, 10))
-    # raw_data = np.array([[255, 0, 0], [0, 255, 0], [0, 0, 255]])
+    raw_data = np.random.randint(0, 255, (3, 5))
+    raw_data = np.array([[255, 0, 0], [0, 255, 0], [0, 0, 255]])
+    train_colors = raw_data.reshape((raw_data.size / 3, 1, 3))
+    plt.subplot(1,3,1)
+    plt.imshow(train_colors.astype(np.uint8))
+
     network_dimensions = np.array([10, 10])
     n_iterations = 2000
     init_learning_rate = 0.03
@@ -710,11 +714,57 @@ def test_som_1():
     data = raw_data / 255.
 
     som = Som(network_dimensions, m)
-    plt.figure()
+    plt.subplot(1,3,2)
     plt.imshow(som.net)
     som.train(data, n_iterations, init_learning_rate)
 
-    plt.figure()
+    plt.subplot(1,3,3)
     plt.imshow(som.net)
     plt.show()
-test_som_1()
+
+# test_som_1()
+
+
+def test_tonotopic_som():
+    import utils
+    data_a = utils.load_obj("Obj/mfcc_a.pkl")
+    data_i = utils.load_obj("Obj/mfcc_i.pkl")
+    data_o = utils.load_obj("Obj/mfcc_o.pkl")
+    data_u = utils.load_obj("Obj/mfcc_u.pkl")
+
+    raw_data = np.concatenate((data_a, data_i, data_o, data_u))
+    labels = np.concatenate((["a"]*len(data_a), ["i"]*len(data_i), ["o"]*len(data_o), ["u"]*len(data_u)))
+
+    # normalize data
+    data, maxes, mins = utils.normalize(raw_data, axis=0, norm_by_column=True)
+
+    np.random.seed(1996)
+    from som import Som
+    network_dimensions = np.array([20, 20])
+    n_iterations = 2000
+    init_learning_rate = 0.03
+    # establish size variables based on data
+    data_t = np.transpose(data)
+    m = data_t.shape[0]
+    n = data_t.shape[1]
+
+    som = Som(network_dimensions, m)
+
+    som.train(data_t, n_iterations, init_learning_rate)
+
+    # show topology
+
+    markers = {"a": "^",
+               "i": "o",
+               "o": "x",
+               "u": "d"}
+
+    for i, label in enumerate(labels):
+        if i % 100 == 0:
+            _, idx = som.find_bmu(data_t[:, i])
+            plt.scatter(idx[0], idx[1], marker=markers[label], c="black")
+    plt.show()
+
+    return
+
+test_tonotopic_som()

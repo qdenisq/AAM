@@ -1,5 +1,8 @@
+from __future__ import print_function
 from neural_mapping import NeuralMap
 import numpy as np
+import utils
+
 
 
 class GSom(NeuralMap):
@@ -42,7 +45,8 @@ class Som:
         self.network_shape = network_shape
         self.input_shape = input_shape
         self.net = np.random.random(np.append(network_shape, input_shape))
-
+        normal = lambda vec: [x/sum(vec) for x in vec]
+        self.net = np.apply_along_axis(normal, len(network_shape), self.net)
         self.radius = max(network_shape) / 2
         return
 
@@ -51,8 +55,8 @@ class Som:
         self.learning_rate = learning_rate
         radius = self.radius
         for i in range(n_iterations):
-            print "epoch:", i
-            print np.random.randint(0, high=input.shape[1])
+            # sys.stdout.flush()
+            print("\repoch out of {}: {}".format(n_iterations, i+1), end='')
             target = input[:, np.random.randint(0, high=input.shape[1])]
             bmu, bmu_idx = self.find_bmu(target)
             self.update_weights(target, bmu_idx, radius, learning_rate)
@@ -61,13 +65,18 @@ class Som:
 
     def find_bmu(self, t):
         min_dist = np.iinfo(np.int).max
+        max_resp = 0.
         bmu_idx = None
         for i in np.ndindex(*self.network_shape):
             w = self.net[i].reshape(self.input_shape)
+            resp = np.dot(w, t)
             sq_dist = np.sum((w - t) **2)
-            if sq_dist < min_dist:
-                min_dist = sq_dist
+            if resp > max_resp:
+                max_resp = resp
                 bmu_idx = i
+            # if sq_dist < min_dist:
+            #     min_dist = sq_dist
+            #     bmu_idx = i
         bmu = self.net[bmu_idx]
         return (bmu, bmu_idx)
 
@@ -89,4 +98,5 @@ class Som:
                 w = self.net[i]
                 delta_w = learning_rate * influence * (target - w)
                 self.net[i] = w + delta_w
+                self.net[i] = [x/sum(self.net[i]) for x in self.net[i]]
 
