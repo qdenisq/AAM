@@ -1,3 +1,4 @@
+from __future__ import division
 from numpy.random import normal, uniform
 import numpy as np
 from scipy.stats import multivariate_normal
@@ -5,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 from scipy.stats import norm
 import time
+
 counter = 0
 
 #
@@ -695,6 +697,31 @@ def test_som():
 
 # test_som()
 
+
+def generate_color_sequence_training_data(sequence_length, num_unique_colors, num_unique_sequences, num_samples_per_cluster):
+    np.random.seed(1996)
+    train_data = []
+    unique_colors = np.random.randint(0, 255, (num_unique_colors, 3))
+    unique_sequences = [unique_colors[np.random.randint(0, num_unique_colors, sequence_length)] for _ in range(num_unique_sequences)]
+    for i in range(num_unique_sequences):
+        ref_color = [unique_sequences[i] for _ in range(num_samples_per_cluster)]
+        delta = [np.random.randint(0, 20, (sequence_length, 3)) for _ in range(num_samples_per_cluster)]
+        train_data.extend(np.add(ref_color, delta))
+    train_data = np.array(train_data).astype(float)
+    # norm to range [0;1]
+    for x in np.nditer(train_data, op_flags=[['readwrite']]):
+        x[...] = 255 if x > 255 else x
+        x[...] = 0 if x < 0 else x
+        x[...] = x / 255.
+
+    return train_data
+
+
+# train_data = generate_color_sequence_training_data(sequence_length=5, num_unique_colors=10, num_unique_sequences=5, num_samples_per_cluster=100)
+# plt.imshow(np.asarray(train_data).astype(float), aspect='auto')
+# plt.autoscale()
+# plt.show()
+
 def test_som_1():
     np.random.seed(1996)
     from som import Som
@@ -767,4 +794,36 @@ def test_tonotopic_som():
 
     return
 
-test_tonotopic_som()
+# test_tonotopic_som()
+
+
+def test_sequence_color_som():
+    np.random.seed(1996)
+    from som import Som
+    train_data = generate_color_sequence_training_data(sequence_length=5, num_unique_colors=10, num_unique_sequences=5,
+                                                       num_samples_per_cluster=100)
+    plt.subplot(1,3,1)
+    plt.imshow(np.asarray(train_data).astype(float), aspect='auto')
+    plt.autoscale()
+
+    flattened_data = train_data.reshape((int(train_data.size / 3), 3))
+    flattened_data = np.transpose(flattened_data)
+    network_dimensions = np.array([10, 10])
+    n_iterations = 2000
+    init_learning_rate = 0.03
+    # establish size variables based on data
+    m = flattened_data.shape[0]
+    n = flattened_data.shape[1]
+
+    som = Som(network_dimensions, m)
+    plt.subplot(1, 3, 2)
+    plt.imshow(som.net)
+    som.train(flattened_data, n_iterations, init_learning_rate)
+
+    plt.subplot(1, 3, 3)
+    plt.imshow(som.net)
+    plt.show()
+
+    return
+
+test_sequence_color_som()

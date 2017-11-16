@@ -46,7 +46,7 @@ class Som:
         self.input_shape = input_shape
         self.net = np.random.random(np.append(network_shape, input_shape))
         normal = lambda vec: [x/sum(vec) for x in vec]
-        self.net = np.apply_along_axis(normal, len(network_shape), self.net)
+        # self.net = np.apply_along_axis(normal, len(network_shape), self.net)
         self.radius = max(network_shape) / 2
         return
 
@@ -69,7 +69,7 @@ class Som:
         bmu_idx = None
         for i in np.ndindex(*self.network_shape):
             w = self.net[i].reshape(self.input_shape)
-            resp = np.dot(w, t)
+            resp = np.dot(w, t) / np.linalg.norm(t) / np.linalg.norm(w)
             sq_dist = np.sum((w - t) **2)
             if resp > max_resp:
                 max_resp = resp
@@ -98,5 +98,5 @@ class Som:
                 w = self.net[i]
                 delta_w = learning_rate * influence * (target - w)
                 self.net[i] = w + delta_w
-                self.net[i] = [x/sum(self.net[i]) for x in self.net[i]]
+                # self.net[i] = [x/sum(self.net[i]) for x in self.net[i]]
 
