@@ -4,8 +4,10 @@ import numpy as np
 from scipy.stats import multivariate_normal
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
+import matplotlib
 from scipy.stats import norm
 import time
+import utils
 
 counter = 0
 
@@ -699,13 +701,12 @@ def test_som():
 
 
 def generate_color_sequence_training_data(sequence_length, num_unique_colors, num_unique_sequences, num_samples_per_cluster):
-    np.random.seed(1996)
     train_data = []
     unique_colors = np.random.randint(0, 255, (num_unique_colors, 3))
     unique_sequences = [unique_colors[np.random.randint(0, num_unique_colors, sequence_length)] for _ in range(num_unique_sequences)]
     for i in range(num_unique_sequences):
         ref_color = [unique_sequences[i] for _ in range(num_samples_per_cluster)]
-        delta = [np.random.randint(0, 20, (sequence_length, 3)) for _ in range(num_samples_per_cluster)]
+        delta = [np.random.randint(0, 30, (sequence_length, 3)) for _ in range(num_samples_per_cluster)]
         train_data.extend(np.add(ref_color, delta))
     train_data = np.array(train_data).astype(float)
     # norm to range [0;1]
@@ -714,7 +715,7 @@ def generate_color_sequence_training_data(sequence_length, num_unique_colors, nu
         x[...] = 0 if x < 0 else x
         x[...] = x / 255.
 
-    return train_data
+    return train_data, unique_sequences, unique_colors
 
 
 # train_data = generate_color_sequence_training_data(sequence_length=5, num_unique_colors=10, num_unique_sequences=5, num_samples_per_cluster=100)
@@ -798,19 +799,22 @@ def test_tonotopic_som():
 
 
 def test_sequence_color_som():
-    np.random.seed(1996)
+    np.random.seed(1991)
     from som import Som
-    train_data = generate_color_sequence_training_data(sequence_length=5, num_unique_colors=10, num_unique_sequences=5,
-                                                       num_samples_per_cluster=100)
+    sequence_length = 10
+    num_samples_per_cluster = 100
+    train_data, unique_sequences, unique_colors = generate_color_sequence_training_data(sequence_length=sequence_length,
+                                                                                        num_unique_colors=10,
+                                                                                        num_unique_sequences=10,
+                                                                                        num_samples_per_cluster=num_samples_per_cluster)
     plt.subplot(1,3,1)
     plt.imshow(np.asarray(train_data).astype(float), aspect='auto')
     plt.autoscale()
-
     flattened_data = train_data.reshape((int(train_data.size / 3), 3))
     flattened_data = np.transpose(flattened_data)
-    network_dimensions = np.array([10, 10])
+    network_dimensions = np.array([20, 20])
     n_iterations = 2000
-    init_learning_rate = 0.03
+    init_learning_rate = 0.05
     # establish size variables based on data
     m = flattened_data.shape[0]
     n = flattened_data.shape[1]
@@ -820,8 +824,41 @@ def test_sequence_color_som():
     plt.imshow(som.net)
     som.train(flattened_data, n_iterations, init_learning_rate)
 
+    utils.save_obj(som, "color_som")
+
     plt.subplot(1, 3, 3)
     plt.imshow(som.net)
+
+    seq_train_data = []
+    for i in range(train_data.shape[0]):
+        sequence = train_data[i]
+        responses = np.zeros(network_dimensions[0] * network_dimensions[1] * sequence_length)
+        for j in range(len(sequence)):
+            bmu, bmu_idx = som.find_bmu(sequence[j])
+            responses[bmu_idx[0]*network_dimensions[0] + bmu_idx[1] + network_dimensions[0] * network_dimensions[1] * j] = 1.
+        seq_train_data.append(responses)
+    seq_train_data = np.array(seq_train_data).transpose()
+    seq_som = Som(network_dimensions, seq_train_data.shape[0])
+    seq_som.train(seq_train_data, n_iterations, init_learning_rate)
+
+    utils.save_obj(seq_som, "seq_color_som")
+    utils.save_obj((train_data, unique_sequences, unique_colors), "seq_color_train_data")
+
+    plt.figure()
+    plt.grid()
+    colors = matplotlib.cm.rainbow(np.linspace(0, 1, len(unique_sequences)))
+    for i in range(seq_train_data.shape[1]):
+        sequence = seq_train_data[:, i]
+        bmu, bmu_idx = seq_som.find_bmu(sequence)
+        print bmu_idx[0], bmu_idx[1]
+        print colors[i // num_samples_per_cluster]
+        if i % num_samples_per_cluster == 0:
+            plt.scatter(bmu_idx[0], bmu_idx[1], c=colors[i // num_samples_per_cluster], label="{}".format(i // num_samples_per_cluster), alpha=1.0)
+        else:
+            plt.scatter(bmu_idx[0], bmu_idx[1], c=colors[i // num_samples_per_cluster], alpha=0.5)
+
+
+    plt.legend(loc=2)
     plt.show()
 
     return
