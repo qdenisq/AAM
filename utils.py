@@ -58,13 +58,19 @@ def synthesize_static_sound(cf, duration=0.5, frame_rate=200):
     return audio
 
 
-def synthesize_dynamic_sound(cf_1, cf_2, duration=0.5, frame_rate=200):
+def synthesize_dynamic_sound(cf_1, cf_2, duration=1.0, frame_rate=200):
     num_frames = int(duration*frame_rate)
     tract_params = []
     glottis_params = []
-    for i in range(num_frames):
+    for i in range(int(num_frames / 3)):
+        tract_params.append([cf_1[p] for p in range(24)])
+        glottis_params.append([cf_1[p] for p in range(24, 30)])
+    for i in range(int(num_frames/3), int(2.*num_frames/3)):
         tract_params.append([cf_1[p] + (cf_2[p] - cf_1[p]) * i / num_frames for p in range(24)])
         glottis_params.append([cf_1[p] + (cf_2[p] - cf_1[p]) * i / num_frames for p in range(24, 30)])
+    for i in range(int(2*num_frames / 3), num_frames):
+        tract_params.append([cf_2[p] for p in range(24)])
+        glottis_params.append([cf_2[p] for p in range(24, 30)])
     audio = pyvtl.synth_block(tract_params, glottis_params, frame_rate)
     return audio
 
@@ -81,13 +87,13 @@ def create_static_sound_data(cf, name, sigma=0.003, num_samples=500, folder="Dat
     return
 
 
-def create_dynamic_sound_data(cf_1, cf_2, name, sigma_1=0.003, sigma_2=0.003, num_samples=500, folder="Data"):
+def create_dynamic_sound_data(cf_1, cf_2, name, sigma_1=0.003, sigma_2=0.003, num_samples=500, folder="Data", duration=0.5):
     fixed_params = range(24, 30)
     cfs_1 = random_choice_articulatory_space(cf_1, sigma_1, num_samples, fixed_params)
     cfs_2 = random_choice_articulatory_space(cf_2, sigma_2, num_samples, fixed_params)
 
     for i in range(len(cfs_1)):
-        audio = synthesize_dynamic_sound(cfs_1[i], cfs_2[i])
+        audio = synthesize_dynamic_sound(cfs_1[i], cfs_2[i], duration=duration)
         wav = np.array(audio)
         wav_int = np.int16(wav * (2 ** 15 - 1))
         wavfile.write('{0}/{1}_{2}.wav'.format(folder, name, i), 22050, wav_int)
@@ -237,8 +243,8 @@ def generate_training_data_VV(sound_1, sound_2, sigma_1=0.001, sigma_2=0.001):
 
     name = sound_1 + sound_2
     print name
-    create_dynamic_sound_data(cf_1, cf_2,name=name, sigma_1=sigma_1, sigma_2=sigma_2,
-                              folder="Data/{0}{1}".format(sound_1, sound_2))
+    create_dynamic_sound_data(cf_1, cf_2, name=name, sigma_1=sigma_1, sigma_2=sigma_2,
+                              folder="Data/{0}{1}".format(sound_1, sound_2), num_samples=50, duration=0.25)
     mfccs = calc_mfcc_from_dynamic_data("Data/{0}{1}".format(sound_1, sound_2))
     save_obj(mfccs, "mfcc_{0}{1}".format(sound_1, sound_2), directory="Obj")
     return

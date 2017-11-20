@@ -723,18 +723,18 @@ def generate_color_sequence_training_data(sequence_length, num_unique_colors, nu
 # plt.autoscale()
 # plt.show()
 
-def test_som_1():
+def test_color_som():
     np.random.seed(1996)
     from som import Som
-    raw_data = np.random.randint(0, 255, (3, 5))
-    raw_data = np.array([[255, 0, 0], [0, 255, 0], [0, 0, 255]])
-    train_colors = raw_data.reshape((raw_data.size / 3, 1, 3))
+    raw_data = np.random.randint(0, 255, (3, 25))
+    # raw_data = np.array([[255, 0, 0], [0, 255, 0], [0, 0, 255]])
+    train_colors = raw_data.reshape((int(raw_data.size / 3), 1, 3))
     plt.subplot(1,3,1)
     plt.imshow(train_colors.astype(np.uint8))
 
-    network_dimensions = np.array([10, 10])
+    network_dimensions = np.array([40, 40])
     n_iterations = 2000
-    init_learning_rate = 0.03
+    init_learning_rate = 0.06
     # establish size variables based on data
     m = raw_data.shape[0]
     n = raw_data.shape[1]
@@ -750,7 +750,7 @@ def test_som_1():
     plt.imshow(som.net)
     plt.show()
 
-# test_som_1()
+# test_color_som()
 
 
 def test_tonotopic_som():
@@ -863,4 +863,116 @@ def test_sequence_color_som():
 
     return
 
-test_sequence_color_som()
+# test_sequence_color_som()
+
+
+def test_sequence_tonotpoic_som(sequences):
+    import utils
+
+    raw_data = []
+
+    num_unique_sequences = len(sequences)
+    num_samples_per_cluster = 0
+    for s in sequences:
+        data = utils.load_obj("Obj/mfcc_{}.pkl".format(s))
+        num_samples_per_cluster = np.array(data).shape[0]
+        raw_data.extend(data)
+    raw_data = np.array(raw_data)
+    #
+    # data_aa = utils.load_obj("Obj/mfcc_aa.pkl")
+    # data_ai = utils.load_obj("Obj/mfcc_ai.pkl")
+    # data_ao = utils.load_obj("Obj/mfcc_ao.pkl")
+    # data_au = utils.load_obj("Obj/mfcc_au.pkl")
+    #
+    # raw_data = np.concatenate((data_aa, data_ai))
+    #
+    # num_samples_per_cluster = np.array(data_aa).shape[0]
+    # num_unique_sequences = 2
+
+    # labels = np.concatenate((["aa"] * len(data_aa) * len(data_aa[0]), ["ai"] * len(data_ai) * len(data_aa[0]), ["ao"] * len(data_ao) * len(data_aa[0]), ["au"] * len(data_au) * len(data_aa[0])))
+
+    # normalize data
+
+    # data, maxes, mins = utils.normalize(raw_data, axis=0, norm_by_column=True)
+    data = raw_data
+    np.random.seed(1996)
+    from som import Som
+    network_dimensions = np.array([20, 20])
+    n_iterations = 2000
+    init_learning_rate = 0.04
+    # establish size variables based on data
+    flattened_data = data.reshape((int(data.size / 13), 13))
+
+    data_t = np.transpose(flattened_data)
+    data_t_n = utils.normalize(data_t, axis=1, norm_by_column=True)[0]
+    data_train = data_t_n.transpose().reshape(raw_data.shape)
+    m = data_t.shape[0]
+    n = data_t.shape[1]
+
+    som = Som(network_dimensions, m)
+
+    som.train(data_t_n, n_iterations, init_learning_rate)
+
+    sequence_length = raw_data.shape[1]
+
+    seq_train_data = []
+    for i in range(data_train.shape[0]):
+        sequence = data_train[i]
+        responses = np.zeros(network_dimensions[0] * network_dimensions[1] * sequence_length)
+        for j in range(len(sequence)):
+            bmu, bmu_idx = som.find_bmu(sequence[j])
+            responses[bmu_idx[0]*network_dimensions[0] + bmu_idx[1] + network_dimensions[0] * network_dimensions[1] * j] = 1.
+        seq_train_data.append(responses)
+    seq_train_data = np.array(seq_train_data).transpose()
+    seq_som = Som(network_dimensions, seq_train_data.shape[0])
+    seq_som.train(seq_train_data, n_iterations, init_learning_rate)
+
+    utils.save_obj(seq_som, "seq_tonotopic_som")
+    # utils.save_obj((data_train, unique_sequences, unique_colors), "seq_color_train_data")
+
+    plt.figure()
+    plt.grid()
+    colors = matplotlib.cm.rainbow(np.linspace(0, 1, num_unique_sequences))
+    for i in range(seq_train_data.shape[1]):
+        sequence = seq_train_data[:, i]
+        bmu, bmu_idx = seq_som.find_bmu(sequence)
+        print bmu_idx[0], bmu_idx[1]
+        print colors[i // num_samples_per_cluster]
+        if i % num_samples_per_cluster == 0:
+            plt.scatter(bmu_idx[0], bmu_idx[1], c=colors[i // num_samples_per_cluster], label="{}".format(i // num_samples_per_cluster), alpha=1.0)
+        else:
+            plt.scatter(bmu_idx[0], bmu_idx[1], c=colors[i // num_samples_per_cluster], alpha=1.0)
+
+
+    plt.legend(loc=2)
+    plt.show()
+
+
+
+
+
+    # # show topology
+    # colors = matplotlib.cm.rainbow(np.linspace(0, 1, 4))
+    # markers = {"aa": 0,
+    #            "ai": 1,
+    #            "ao": 2,
+    #            "au": 3}
+    #
+    # for i, label in enumerate(labels):
+    #     if i % 10 == 0:
+    #         _, idx = som.find_bmu(data_t_n[:, i])
+    #         plt.scatter(idx[0], idx[1], color=colors[markers[label]], alpha = 0.2)
+    # plt.show()
+
+    return
+
+# utils.generate_training_data_VV("a", "a")
+# utils.generate_training_data_VV("a", "i")
+# utils.generate_training_data_VV("a", "o")
+# utils.generate_training_data_VV("a", "u")
+
+sequences = ['aa', 'ai', 'ao' , 'au', 'ii' , 'ia', 'iu', 'io', 'uu' , 'ua', 'ui', 'uo', 'oo','oa', 'oi', 'ou']
+# for s in sequences:
+#     utils.generate_training_data_VV(s[0], s[1])
+
+test_sequence_tonotpoic_som(sequences)
