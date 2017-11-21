@@ -28,14 +28,17 @@ class GSom(NeuralMap):
                 w_3, mu_3, cov_3 = self.calc_response(w_1, mu_1, cov_1, w_2, mu_2, cov_2, range(self.input_dim))
                 # adjust mu_1 with regard to the response and mu_2
                 delta_mu = mu_2 - mu_1[:self.input_dim]
-                if w_3 < 1.:
-                    delta_mu = delta_mu * w_3
+                if w_3 > 1.:
+                    w_3 = 1.
+
+                delta_mu = delta_mu * w_3 * 0.05
                 self.means[i][:self.input_dim] += delta_mu
                 # also we need to adjust means of the adjacent components to be selective to this signal as well
                 for j in range(len(self.weights)):
                     delta_mu = mu_2 - self.means[j][:self.input_dim]
-                    if w_3 < 1.:
-                        delta_mu = delta_mu * w_3
+                    if w_3 > 1.:
+                        w_3 = 1.
+                    delta_mu = delta_mu * w_3 * 0.05
                     delta_mu *= np.exp(-1. * (np.linalg.norm(self.means[j][self.input_dim:] - mu_3)**2) / neighbour_sigma**2)
                     self.means[j][:self.input_dim] += delta_mu
 

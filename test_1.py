@@ -1,3 +1,4 @@
+
 from __future__ import division
 from numpy.random import normal, uniform
 import numpy as np
@@ -700,6 +701,126 @@ def test_som():
 # test_som()
 
 
+def test_color_gsom():
+    # prepare training data
+    # generate colors
+    np.random.seed(1996)
+    from som import Som
+    num_colors = 2
+    raw_data = np.random.randint(0, 255, (3, num_colors))
+    # raw_data = np.array([[255, 0, 0], [0, 255, 0], [0, 0, 255]])
+    data = raw_data / 255.
+    train_colors = data.transpose().reshape((int(data.size / 3), 1, 3))
+    plt.subplot(1,3,1)
+    plt.imshow(np.array(train_colors))
+    print data
+    print train_colors
+    # generate data
+    num_samples = 2000
+    train_w = np.array([1.0] * num_samples)
+    train_cov = [[0.001, 0.001, 0.001] for _ in range(num_samples)]
+    train_m = [data[:, i] for i in np.random.randint(0, num_colors, num_samples)]
+
+    # init som
+    from som import GSom
+    import utils
+    # init som
+    num_input_dim = 3
+    num_output_dim = 2
+    som = GSom(num_input_dim,  num_output_dim)
+    num_components = 10
+    for i in range(num_components):
+        w = 1.
+        mu = np.array(uniform(size=num_input_dim+num_output_dim))
+        cov = np.array([0.01]*3)
+        cov = np.append(cov, [0.005]*2)
+        som.add(w, mu, cov)
+
+    # plot initial state of the som
+    x = np.linspace(0, 1, 50)
+    y = np.linspace(0, 1, 50)
+    stride = x[1]-x[0]
+    X, Y = np.meshgrid(x, y)
+    pos = np.empty(X.shape + (2,))
+    pos[:, :, 0] = X
+    pos[:, :, 1] = Y
+    values = np.zeros((len(x), len(y), num_input_dim))
+    values_without_opt = np.zeros((len(x), len(y), num_input_dim))
+    k = len(som.weights)
+
+    for i in range(len(x)):
+        for j in range(len(y)):
+            x_i = x[i]
+            y_j = y[j]
+            m = [[x_i, y_j]]
+            cov = [[0.0001]*2]
+            w = [1.]
+            w_r, m_r, cov_r = som.propagate_gm_signal(w, m, cov, idx=[3,4])
+            m_r = np.array(m_r)
+            initial_guess = np.array([np.dot(w_r, m_r[:, k]) / sum(w_r) for k in range(num_input_dim)])
+
+            idx = w_r.index(max(w_r))
+            initial_guess = m_r[idx]
+
+            # from scipy.optimize import minimize
+            # methods = ["L-BFGS-B", "Powell", "Nelder-Mead", "TNC"]
+            # opt_res = minimize(f, x0=initial_guess, args=(w_r, m_r, cov_r))
+            #
+            # unit_center = opt_res.x
+            #
+            # values[i, j] = unit_center
+            values_without_opt[i, j] = initial_guess
+            # print "unit {} : response {}, succes: {}".format([x_i, y_j], unit_center, opt_res.success)
+
+    plt.subplot(1, 3, 2)
+    plt.imshow(values)
+    plt.subplot(1, 3, 3)
+    plt.imshow(values_without_opt)
+
+    # train som
+
+    for w, m, cov, i in zip(train_w, train_m, train_cov, range(len(train_w))):
+        print("\r{} out of {}".format(i, len(train_w)))
+        print 0.1*(len(train_w)-i)/len(train_w)
+        som.train([w], [m], [cov], 0.2*(len(train_w)-i)/len(train_w))
+
+    # show result
+    plt.figure()
+    for i in range(len(x)):
+        for j in range(len(y)):
+            x_i = x[i]
+            y_j = y[j]
+            m = [[x_i, y_j]]
+            cov = [[0.0001]*2]
+            w = [1.]
+            w_r, m_r, cov_r = som.propagate_gm_signal(w, m, cov, idx=[3, 4])
+            m_r = np.array(m_r)
+            initial_guess = np.array([np.dot(w_r, m_r[:, k]) / sum(w_r) for k in range(num_input_dim)])
+            idx = w_r.index(max(w_r))
+            initial_guess = m_r[idx]
+            # from scipy.optimize import minimize
+            # methods = ["L-BFGS-B", "Powell", "Nelder-Mead", "TNC"]
+            # opt_res = minimize(f, x0=initial_guess, args=(w_r, m_r, cov_r))
+            #
+            # unit_center = opt_res.x
+            #
+            # values[i, j] = unit_center
+            values_without_opt[i, j] = initial_guess
+            # print "unit {} : response {}, succes: {}".format([x_i, y_j], unit_center, opt_res.success)
+    plt.subplot(1,3,1)
+    plt.imshow(train_colors)
+    plt.subplot(1, 3, 2)
+    plt.imshow(values)
+    plt.subplot(1, 3, 3)
+    plt.imshow(values_without_opt)
+
+    plt.show()
+    return
+
+test_color_gsom()
+
+
+
 def generate_color_sequence_training_data(sequence_length, num_unique_colors, num_unique_sequences, num_samples_per_cluster):
     train_data = []
     unique_colors = np.random.randint(0, 255, (num_unique_colors, 3))
@@ -975,4 +1096,4 @@ sequences = ['aa', 'ai', 'ao' , 'au', 'ii' , 'ia', 'iu', 'io', 'uu' , 'ua', 'ui'
 # for s in sequences:
 #     utils.generate_training_data_VV(s[0], s[1])
 
-test_sequence_tonotpoic_som(sequences)
+# test_sequence_tonotpoic_som(sequences)
