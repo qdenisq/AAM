@@ -53,14 +53,14 @@ class Som:
         self.radius = max(network_shape) / 2
         return
 
-    def train(self, input, n_iterations, learning_rate):
+    def train(self, input, n_iterations, learning_rate, shuffle=True):
         time_constant = n_iterations / np.log(self.radius)
         self.learning_rate = learning_rate
         radius = self.radius
         for i in range(n_iterations):
             # sys.stdout.flush()
             print("\repoch out of {}: {}".format(n_iterations, i+1), end='')
-            target = input[:, np.random.randint(0, high=input.shape[1])]
+            target = input[:, np.random.randint(0, high=input.shape[1])] if shuffle else input[:, i % input.shape[1]]
             bmu, bmu_idx = self.find_bmu(target)
             self.update_weights(target, bmu_idx, radius, learning_rate)
             learning_rate = self.decay_learning_rate(i, n_iterations)

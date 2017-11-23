@@ -124,13 +124,16 @@ def calc_mfcc_from_static_data(directory):
 
 def calc_mfcc_from_dynamic_data(directory):
     mfccs = []
+    mfccs_d = []
     fnames = get_file_list(directory)
     for fname in fnames:
         fs, signal = wav.read(os.path.join(directory, fname))
         mfcc = speechpy.mfcc(signal, sampling_frequency=fs, frame_length=0.020, frame_stride=0.01,
                          num_filters=40, fft_length=512, low_frequency=0, high_frequency=None)
         mfccs.append(mfcc)
-    return mfccs
+        mfcc_d = speechpy.extract_derivative_feature(mfcc)
+        mfccs_d.append(mfcc_d)
+    return mfccs, mfccs_d
 
 
 def plot_gmm_3d(components_list, axes_names, axes_idx, targets=[], best_match=[]):
@@ -245,7 +248,7 @@ def generate_training_data_VV(sound_1, sound_2, sigma_1=0.001, sigma_2=0.001):
     print name
     create_dynamic_sound_data(cf_1, cf_2, name=name, sigma_1=sigma_1, sigma_2=sigma_2,
                               folder="Data/{0}{1}".format(sound_1, sound_2), num_samples=50, duration=0.25)
-    mfccs = calc_mfcc_from_dynamic_data("Data/{0}{1}".format(sound_1, sound_2))
+    mfccs, _ = calc_mfcc_from_dynamic_data("Data/{0}{1}".format(sound_1, sound_2))
     save_obj(mfccs, "mfcc_{0}{1}".format(sound_1, sound_2), directory="Obj")
     return
 
@@ -271,8 +274,19 @@ def normalize(data, axis=0, norm_by_column=False):
         return normed_data, max_v, min_v
 
 
+def timit_calc_mfcc(directory):
+    mfccs, mfccs_cube = calc_mfcc_from_dynamic_data(directory)
 
+    data = np.vstack(mfccs_cube)
 
+    normed_data = normalize(data, axis=0, norm_by_column=True)
+
+    save_obj(normed_data, "timit_mfccs")
+
+    return mfccs_cube
+
+directory = r"C:\Study\DB\USC-TIMIT\USC-TIMIT\EMA\Data\M1\wav"
+timit_calc_mfcc(directory)
 
 #
 #

@@ -9,6 +9,7 @@ import matplotlib
 from scipy.stats import norm
 import time
 import utils
+import sys
 
 counter = 0
 
@@ -817,8 +818,7 @@ def test_color_gsom():
     plt.show()
     return
 
-test_color_gsom()
-
+# test_color_gsom()
 
 
 def generate_color_sequence_training_data(sequence_length, num_unique_colors, num_unique_sequences, num_samples_per_cluster):
@@ -1097,3 +1097,131 @@ sequences = ['aa', 'ai', 'ao' , 'au', 'ii' , 'ia', 'iu', 'io', 'uu' , 'ua', 'ui'
 #     utils.generate_training_data_VV(s[0], s[1])
 
 # test_sequence_tonotpoic_som(sequences)
+
+
+def test_tonotopic_som_l1():
+    raw_data, maxes, mins = utils.load_obj("Obj/timit_mfccs.pkl")
+    data = raw_data[:, :, :2]
+    data = data.reshape((data.shape[0], data.shape[1]*2))
+    n = data.shape[0]
+    m = data.shape[1]
+
+    np.random.seed(1996)
+    from som import Som
+    network_dimensions = np.array([30, 30])
+    n_iterations = 200000
+    init_learning_rate = 0.05
+    # establish size variables based on data
+    data_t = np.transpose(data)
+    m = data_t.shape[0]
+    n = data_t.shape[1]
+
+    som = Som(network_dimensions, m)
+
+    som.train(data_t, n_iterations, init_learning_rate, shuffle=False)
+
+    # show topology
+
+    utils.save_obj(som, "timit_l1_som")
+    return
+
+# test_tonotopic_som_l1()
+
+
+def test_tonotopic_som_l2():
+    print "loading timit"
+    raw_data, maxes, mins = utils.load_obj("Obj/timit_mfccs.pkl")
+    data = raw_data[:, :, :2]
+    data = data.reshape((data.shape[0], data.shape[1] * 2))
+
+    print "loading l1 SOM"
+
+    som_l1 = utils.load_obj("Obj/timit_l1_som.pkl")
+
+    np.random.seed(1996)
+    from som import Som
+    network_dimensions = np.array([30, 30])
+    n_iterations = 20000
+    init_learning_rate = 0.05
+    sequence_length = 10
+
+    m = som_l1.network_shape[0] * som_l1.network_shape[1] * sequence_length
+    som_l2 = Som(network_dimensions, m)
+
+    stride = sequence_length / 2
+
+    l1_output = []
+    print "generating training data for l2 SOM:"
+    for i in range(data.shape[0]):
+        sys.stdout.write('\r' + '{} out of {}'.format(i, data.shape[0]))
+        l1_input = data[i]
+        bmu, bmu_idx = som_l1.find_bmu(l1_input)
+        l1_output.append([bmu_idx[0] / network_dimensions[0], bmu_idx[1] / network_dimensions[1]])
+
+    l1_output = np.array(l1_output)
+    utils.save_obj(l1_output, "l1_output")
+
+    n = len(l1_output) // sequence_length
+    l1_output_sequence = [np.array(v).reshape((sequence_length*2)) for v in np.array_split(l1_output[:sequence_length * n], n)]
+
+    network_dimensions = np.array([30, 30])
+    som_l2 = Som(network_dimensions, sequence_length*2)
+    n_iterations = 20000
+    learning_rate = 0.05
+    print
+    print "training:"
+    l2_input = np.array(l1_output_sequence)
+    utils.save_obj(l2_input, "l2_input")
+    l2_input = l2_input.transpose()
+
+    som_l2.train(l2_input, n_iterations, learning_rate)
+
+    utils.save_obj(som_l2, "som_l2")
+    return
+
+# test_tonotopic_som_l2()
+
+
+
+def test_tonotopic_som_l3():
+    # l2_input = utils.load_obj("Obj/l2_input.pkl")
+    # l2_som = utils.load_obj("Obj/som_l2.pkl")
+    #
+    # l2_output = []
+    # print "generating training data for l3 SOM:"
+    # for i in range(l2_input.shape[0]):
+    #     sys.stdout.write('\r' + '{} out of {}'.format(i, l2_input.shape[0]))
+    #     input = l2_input[i]
+    #     bmu, bmu_idx = l2_som.find_bmu(input)
+    #     l2_output.append([bmu_idx[0] / l2_som.network_shape[0], bmu_idx[1] / l2_som.network_shape[1]])
+    #
+    # l2_output = np.array(l2_output)
+    # utils.save_obj(l2_output, "l2_output")
+    l2_output = utils.load_obj("Obj/l2_output.pkl")
+
+    sequence_length = 5
+    n = len(l2_output) // sequence_length
+    network_dimensions = np.array([30, 30])
+    l3_input = [np.array(v).reshape((sequence_length * 2)) for v in
+                          np.array_split(l2_output[:sequence_length * n], n)]
+
+    np.random.seed(1996)
+    from som import Som
+    som_l3 = Som(network_dimensions, sequence_length * 2)
+    n_iterations = 4000
+    learning_rate = 0.05
+    print
+    print "training:"
+
+    l3_input = np.array(l3_input).transpose()
+
+    som_l3.train(l3_input, n_iterations, learning_rate)
+    utils.save_obj(som_l3, "som_l3")
+
+
+    return
+
+
+
+test_tonotopic_som_l3()
+
