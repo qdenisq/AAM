@@ -60,7 +60,7 @@ class Som:
         radius = self.radius
         for i in range(n_iterations):
             # sys.stdout.flush()
-            print("\repoch out of {}: {}".format(n_iterations, i+1), end='')
+            print("\rtraining progress: {} out of {}".format(i+1, n_iterations), end='')
             target = input[:, np.random.randint(0, high=input.shape[1])] if shuffle else input[:, i % input.shape[1]]
             bmu, bmu_idx = self.find_bmu(target)
             assert bmu_idx is not None, "bmu is none for the input: {}".format(target)
@@ -138,19 +138,19 @@ class MultilayerSequenceSom:
         input_data = data
         for i, som in enumerate(self.soms):
             # training
-            print("\n     Training {} som out of {}".format(i + 1, n_soms))
+            print("     Training {} som out of {}".format(i + 1, n_soms))
             self.soms[i].train(input_data, n_iterations[i], learning_rates[i], shuffle=False)
 
             if i == (n_soms - 1):
-                print("Training successfully finished")
+                print("\nTraining successfully finished")
                 return
-            # prepare training data for the next layer\
+
+            # prepare training data for the next layer
 
             print("\n     Prepare training data for {} layer out of {}".format(i + 2, n_soms))
-            train_iterations = n_iterations[i+1]
             output = []
             for j in range(input_data.shape[1]):
-                print('\r{} out of {}'.format(j, input_data.shape[1]), end='')
+                print('\r{} out of {}'.format(j+1, input_data.shape[1]), end='')
                 input_sample = input_data[:, j]
                 bmu, bmu_idx = self.soms[i].find_bmu(input_sample)
                 output.append([bmu_idx[idx] / self.shapes[i][idx] for idx in range(len(bmu_idx))])
@@ -166,7 +166,7 @@ class MultilayerSequenceSom:
             input_data = np.array(output).transpose()
 
             if dump:
-                print("\nSaving training_input...")
+                print("Saving training_input...")
                 utils.save_obj(input_data, "mssom_l{}_training_input".format(i+1))
 
         if dump:
