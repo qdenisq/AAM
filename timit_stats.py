@@ -1,15 +1,18 @@
 import os
 import scipy.io as sio
-import gesture as ges
+# import gesture as ges
 import math
 # import critical_point as cp
 import cPickle
 import numpy as np
 from scipy import interpolate
+import scipy.io.wavfile as wav
+from scipy.io import wavfile
 
-trans_dir = "../USC-TIMIT/EMA/Data/M1/trans"
-mat_dir = "../USC-TIMIT/EMA/Data/M1/mat"
-trans = os.listdir(trans_dir)
+#
+# trans_dir = "../USC-TIMIT/EMA/Data/M1/trans"
+# mat_dir = "../USC-TIMIT/EMA/Data/M1/mat"
+# trans = os.listdir(trans_dir)
 
 
 def save_obj(obj, name):
@@ -26,8 +29,10 @@ def load_obj(name):
 def list_TIMIT_dir(root_dir):
     trans_dir = os.path.join(root_dir, "trans")
     mat_dir = os.path.join(root_dir, "mat")
+    wav_dir = os.path.join(root_dir, "wav")
     return [(os.path.join(trans_dir, fname),
-              os.path.join(mat_dir, os.path.splitext(fname)[0] + ".mat")) for fname in os.listdir(trans_dir)]
+              os.path.join(mat_dir, os.path.splitext(fname)[0] + ".mat"),
+             os.path.join(wav_dir, os.path.splitext(fname)[0] + ".wav")) for fname in os.listdir(trans_dir)]
 
 
 def parse_transcription(fname):
@@ -403,20 +408,73 @@ def parse_audio(root_dir, spekar_name):
     save_obj(phonemes_audio, "{0}_phonemes".format(spekar_name))
 
 
+def count_words(directory):
+    phonemes_dict = {}
+    gestures = {}
+    fnames = list_TIMIT_dir(directory)
+    words_dict = {}
+    for trans_fname, mat_fname, _ in fnames:
+        # parse transcription
+        t_starts, t_ends, phonemes, words, sentences = parse_transcription(trans_fname)
+        for i, w in enumerate(words):
+            if words[i-1] != w:
+                if w not in words_dict:
+                    words_dict[w] = 0
+                words_dict[w] += 1
+    sorted_words = sorted(words_dict, key=words_dict.get, reverse=True)
+    for w in sorted_words:
+        print w, words_dict[w]
+
+directory = r"C:\Users\s3628075\Study\USC-TIMIT\USC-TIMIT\EMA\Data\M1"
+# print directory
+count_words(directory=directory)
+
+
+def extract_words(directory, words, destination_folder):
+    print "extracting words:" , words
+    fnames = list_TIMIT_dir(directory)
+    words_counter = {}
+    for w in words:
+        words_counter[w] = 0
+    t_starts_dict = {}
+    for trans_fname, mat_fname, wav_fname in fnames:
+        # parse transcription
+        t_start = 0.
+        t_end = 0.
+        t_starts, t_ends, phonemes, words_list, sentences = parse_transcription(trans_fname)
+        for i, w in enumerate(words_list):
+            if words_list[i - 1] != w and w in words:
+                t_start = t_starts[i]
+            if words_list[i - 1] != w and words_list[i - 1] in words:
+                t_end = t_ends[i]
+                fs, signal = wav.read(os.path.join(wav_fname))
+                wav.write("{}/{}_{}.wav".format(destination_folder,
+                                                words_list[i - 1],
+                                                words_counter[words_list[i - 1]]),
+                          fs,
+                          signal[int(fs * t_start): int(fs * t_end)])
+                words_counter[words_list[i - 1]] += 1
+                t_start = 0.
+                t_end = 0.
+
+words = ["not", "they", "an", "we", "this", "by", "his", "all"]
+destination_folder = r"C:\Users\s3628075\Study\AAM\Data\timit_words"
+directory = r"C:\Users\s3628075\Study\USC-TIMIT\USC-TIMIT\EMA\Data\M1"
+extract_words(directory, words, destination_folder)
 
 
 # parse_audio("../USC-TIMIT/EMA/Data/F1", "F1")
 
 import scipy.io.wavfile as wav
-from scipy.io import wavfile
-import random
-import numpy as np
-
-audio = load_obj("F1_phonemes")
-wav = np.array([item for sublist in audio["ih"] for item in sublist[len(sublist)/4 : len(sublist)*3/4] ])
-wav_int = np.int16(wav * (2 ** 15 - 1))
-
-wavfile.write('f1_ih.wav', 22050, wav_int)
+# from scipy.io import wavfile
+# import random
+# import numpy as np
+#
+# audio = load_obj("F1_phonemes")
+# wav = np.array([item for sublist in audio["ih"] for item in sublist[len(sublist)/4 : len(sublist)*3/4] ])
+# wav_int = np.int16(wav * (2 ** 15 - 1))
+#
+# wavfile.write('f1_ih.wav', 22050, wav_int)
 
 
 # find_weights()
