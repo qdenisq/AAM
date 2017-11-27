@@ -284,9 +284,9 @@ def timit_calc_mfcc(directory):
     save_obj(normed_data, "timit_mfccs")
 
     return mfccs_cube
-
-directory = r"C:\Study\DB\USC-TIMIT\USC-TIMIT\EMA\Data\M1\wav"
-timit_calc_mfcc(directory)
+#
+# directory = r"C:\Study\DB\USC-TIMIT\USC-TIMIT\EMA\Data\M1\wav"
+# timit_calc_mfcc(directory)
 
 #
 #

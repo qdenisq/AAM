@@ -1,4 +1,5 @@
 from __future__ import print_function
+from __future__ import division
 from neural_mapping import NeuralMap
 import numpy as np
 import utils
@@ -62,6 +63,7 @@ class Som:
             print("\repoch out of {}: {}".format(n_iterations, i+1), end='')
             target = input[:, np.random.randint(0, high=input.shape[1])] if shuffle else input[:, i % input.shape[1]]
             bmu, bmu_idx = self.find_bmu(target)
+            assert bmu_idx is not None, "bmu is none for the input: {}".format(target)
             self.update_weights(target, bmu_idx, radius, learning_rate)
             learning_rate = self.decay_learning_rate(i, n_iterations)
             radius = self.decay_radius(i, time_constant)
@@ -103,3 +105,96 @@ class Som:
                 self.net[i] = w + delta_w
                 # self.net[i] = [x/sum(self.net[i]) for x in self.net[i]]
 
+
+class MultilayerSequenceSom:
+    def __init__(self, layers_shapes, sequences_lengths, input_vector_length):
+        assert len(layers_shapes) == len(sequences_lengths), \
+            "len of layers %d and len of sequences %d don't match" % (len(layers_shapes), len(sequences_lengths))
+        self.shapes = layers_shapes
+        self.sequences_lengths = sequences_lengths
+        self.input_length = input_vector_length
+        self.soms = []
+        for i, shape in enumerate(self.shapes):
+            # create first som layer manually
+            if i == 0:
+                som = Som(shape, self.input_length * sequences_lengths[0])
+                self.soms.append(som)
+            else:
+                # input vector for all soms except first one is sequence of units coordinates form previous som
+                # i.e. for 2d som with 3 units in sequence input_vector = [x0, y0, x1, y1, x2, y2]
+                som = Som(shape, len(self.shapes[i-1]) * sequences_lengths[i])
+                self.soms.append(som)
+
+    def train(self, data, n_iterations, learning_rates, dump=True):
+        """
+        Train network with data. Each layer is trained for n_iterations. Training is done consequently for all layers in
+         down to top order
+        :param data: training data
+        :param n_iterations:list of number of training iterations for each layer
+        :return:
+        """
+
+        n_soms = len(self.soms)
+        input_data = data
+        for i, som in enumerate(self.soms):
+            # training
+            print("\n     Training {} som out of {}".format(i + 1, n_soms))
+            self.soms[i].train(input_data, n_iterations[i], learning_rates[i], shuffle=False)
+
+            if i == (n_soms - 1):
+                print("Training successfully finished")
+                return
+            # prepare training data for the next layer\
+
+            print("\n     Prepare training data for {} layer out of {}".format(i + 2, n_soms))
+            train_iterations = n_iterations[i+1]
+            output = []
+            for j in range(input_data.shape[1]):
+                print('\r{} out of {}'.format(j, input_data.shape[1]), end='')
+                input_sample = input_data[:, j]
+                bmu, bmu_idx = self.soms[i].find_bmu(input_sample)
+                output.append([bmu_idx[idx] / self.shapes[i][idx] for idx in range(len(bmu_idx))])
+
+            output = np.array(output)
+            if dump:
+                print("\nSaving output...")
+                utils.save_obj(output, "mssom_l{}_training_output".format(i))
+            sequence_length = self.sequences_lengths[i+1]
+            n = len(output) // self.sequences_lengths[i+1]
+            output = [np.array(v).reshape((sequence_length * len(self.shapes[i]))) for v in
+                                  np.array_split(output[:sequence_length * n], n)]
+            input_data = np.array(output).transpose()
+
+            if dump:
+                print("\nSaving training_input...")
+                utils.save_obj(input_data, "mssom_l{}_training_input".format(i+1))
+
+        if dump:
+            print("\nSaving network...")
+            utils.save_obj(self, "mssom")
+
+        print("\n\nTraining successfully finished")
+        return
+
+    def find_bmu(self, data):
+        """
+        return list of best matching units of all layers in the mssom
+        :param data: input has to be 2d np.array with the shape of input_length in the 1st dim and len of maximum sequence
+        in the 2nd dim
+        :return: bmus: list of arrays of bmus of each layer in the mssom
+        """
+        bmus = []
+        input_data = data
+        for i, som in enumerate(self.soms):
+            output = []
+            for j in range(input_data.shape[1]):
+                _, bmu_idx = som.find_bmu(input_data[:, j])
+                output.append([bmu_idx[idx] / self.shapes[i][idx] for idx in range(len(bmu_idx))])
+            output = np.array(output)
+            bmus.append(output)
+            sequence_length = self.sequences_lengths[i + 1]
+            n = len(output) // self.sequences_lengths[i + 1]
+            output = [np.array(v).reshape((sequence_length * len(self.shapes[i]))) for v in
+                      np.array_split(output[:sequence_length * n], n)]
+            input_data = np.array(output).transpose()
+        return bmus

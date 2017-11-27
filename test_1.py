@@ -1182,7 +1182,6 @@ def test_tonotopic_som_l2():
 # test_tonotopic_som_l2()
 
 
-
 def test_tonotopic_som_l3():
     # l2_input = utils.load_obj("Obj/l2_input.pkl")
     # l2_som = utils.load_obj("Obj/som_l2.pkl")
@@ -1217,11 +1216,41 @@ def test_tonotopic_som_l3():
 
     som_l3.train(l3_input, n_iterations, learning_rate)
     utils.save_obj(som_l3, "som_l3")
-
-
     return
 
+# test_tonotopic_som_l3()
 
 
-test_tonotopic_som_l3()
+def test_tonotopic_mssom():
+    from som import MultilayerSequenceSom as MSSom
+    np.random.seed(1996)
+
+    num_layers = 3
+    sequences_lengths = [1, 10, 4]
+    layers_shapes = [(10, 10)] * num_layers
+
+    print "Loading training data..."
+    raw_data, maxes, mins = utils.load_obj("Obj/timit_mfccs.pkl")
+    data = raw_data[:2000, :, :2]
+    data = data.reshape((data.shape[0], data.shape[1]*2))
+
+    from som import Som
+    network_dimensions = np.array([30, 30])
+    n_iterations = [2000, 200, 50]
+    learning_rates = [0.05] * num_layers
+    # establish size variables based on data
+    data = np.transpose(data)
+    m = data.shape[0] # input_length
+    n = data.shape[1] # num of samples
+
+    print "Training data input vector length: {} \n number of samples: {}".format(m, n)
+
+    mssom = MSSom(layers_shapes, sequences_lengths, m)
+    mssom.train(data, n_iterations, learning_rates, dump=True)
+
+    utils.save_obj(mssom, "mssom")
+    return
+
+test_tonotopic_mssom()
+
 
