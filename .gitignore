@@ -47,4 +47,6 @@ Temporary Items
 .apdisk
 
 "Data/"
+"Training_obj/"
+"Obj/"
 *.wav
