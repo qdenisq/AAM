@@ -425,7 +425,7 @@ def count_words(directory):
     for w in sorted_words:
         print w, words_dict[w]
 
-directory = r"C:\Users\s3628075\Study\USC-TIMIT\USC-TIMIT\EMA\Data\M1"
+directory = r"C:\Study\DB\USC-TIMIT\USC-TIMIT\EMA\Data\M1"
 # print directory
 count_words(directory=directory)
 
@@ -457,9 +457,9 @@ def extract_words(directory, words, destination_folder):
                 t_start = 0.
                 t_end = 0.
 
-words = ["not", "they", "an", "we", "this", "by", "his", "all"]
-destination_folder = r"C:\Users\s3628075\Study\AAM\Data\timit_words"
-directory = r"C:\Users\s3628075\Study\USC-TIMIT\USC-TIMIT\EMA\Data\M1"
+words = ["box", "bob", "be", "boy", "call", "gas", "take", "love", "book", "biology", "noise", "lost", "candy", "five", "lake", "lily"]
+destination_folder = r"C:\Study\AAM\Data\timit_words"
+directory = r"C:\Study\DB\USC-TIMIT\USC-TIMIT\EMA\Data\M1"
 extract_words(directory, words, destination_folder)
 
 

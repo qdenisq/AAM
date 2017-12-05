@@ -66,8 +66,8 @@ def synthesize_dynamic_sound(cf_1, cf_2, duration=1.0, frame_rate=200):
         tract_params.append([cf_1[p] for p in range(24)])
         glottis_params.append([cf_1[p] for p in range(24, 30)])
     for i in range(int(num_frames/3), int(2.*num_frames/3)):
-        tract_params.append([cf_1[p] + (cf_2[p] - cf_1[p]) * i / num_frames for p in range(24)])
-        glottis_params.append([cf_1[p] + (cf_2[p] - cf_1[p]) * i / num_frames for p in range(24, 30)])
+        tract_params.append([cf_1[p] + (cf_2[p] - cf_1[p]) * (3. * i - num_frames) / num_frames for p in range(24)])
+        glottis_params.append([cf_1[p] + (cf_2[p] - cf_1[p]) * (3. * i - num_frames) / num_frames for p in range(24, 30)])
     for i in range(int(2*num_frames / 3), num_frames):
         tract_params.append([cf_2[p] for p in range(24)])
         glottis_params.append([cf_2[p] for p in range(24, 30)])
@@ -134,6 +134,18 @@ def calc_mfcc_from_dynamic_data(directory):
         mfcc_d = speechpy.extract_derivative_feature(mfcc)
         mfccs_d.append(mfcc_d)
     return mfccs, mfccs_d
+
+
+def extract_mfcc(directory):
+    mfccs_d = []
+    fnames = get_file_list(directory)
+    for fname in fnames:
+        fs, signal = wav.read(os.path.join(directory, fname))
+        mfcc = speechpy.mfcc(signal, sampling_frequency=fs, frame_length=0.020, frame_stride=0.01,
+                             num_filters=40, fft_length=512, low_frequency=0, high_frequency=None)
+        mfcc_d = speechpy.extract_derivative_feature(mfcc)
+        mfccs_d.append(mfcc_d)
+    return mfccs_d
 
 
 def plot_gmm_3d(components_list, axes_names, axes_idx, targets=[], best_match=[]):
@@ -247,7 +259,7 @@ def generate_training_data_VV(sound_1, sound_2, sigma_1=0.001, sigma_2=0.001):
     name = sound_1 + sound_2
     print name
     create_dynamic_sound_data(cf_1, cf_2, name=name, sigma_1=sigma_1, sigma_2=sigma_2,
-                              folder="Data/{0}{1}".format(sound_1, sound_2), num_samples=50, duration=0.25)
+                              folder="Data/{0}{1}".format(sound_1, sound_2), num_samples=10, duration=0.5)
     mfccs, _ = calc_mfcc_from_dynamic_data("Data/{0}{1}".format(sound_1, sound_2))
     save_obj(mfccs, "mfcc_{0}{1}".format(sound_1, sound_2), directory="Obj")
     return
@@ -284,6 +296,28 @@ def timit_calc_mfcc(directory):
     save_obj(normed_data, "timit_mfccs")
 
     return mfccs_cube
+
+
+def pad_audio(data, fs, T):
+    # Calculate target number of samples
+    N_tar = int(fs * T)
+    # Calculate number of zero samples to append
+    shape = data.shape
+    # Create the target shape
+    N_pad = N_tar - shape[0]
+    print("Padding with %s seconds of silence" % str(N_pad/fs) )
+    shape = (N_pad,) + shape[1:]
+    # Stack only if there is something to append
+    if shape[0] > 0:
+        if len(shape) > 1:
+            return np.vstack((data, np.zeros(shape)))
+        else:
+            return np.hstack((data, np.zeros(shape)))
+    else:
+        return data
+
+generate_training_data_VV("a", "i")
+
 #
 # directory = r"C:\Study\DB\USC-TIMIT\USC-TIMIT\EMA\Data\M1\wav"
 # timit_calc_mfcc(directory)
@@ -373,5 +407,4 @@ def timit_calc_mfcc(directory):
 # wav = np.array(audio)
 # wav_int = np.int16(wav * (2 ** 15 - 1))
 # wavfile.write('Obj/a.wav', 22050, wav_int)
-
 

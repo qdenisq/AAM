@@ -42,7 +42,7 @@ except ImportError:
 # load vocaltractlab binary
 # Use 'VocalTractLabApi32.dll' if you use a 32-bit python version.
 if sys.platform == 'win32':
-    VTL = ctypes.cdll.LoadLibrary(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'VocalTractLabApi64.dll'))
+    VTL = ctypes.cdll.LoadLibrary(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'VocalTractLabApi.dll'))
 else:
     VTL = ctypes.cdll.LoadLibrary(os.path.join(os.path.dirname(os.path.abspath(__file__)),'VocalTractLabApi64.so'))
 
@@ -54,7 +54,7 @@ VTL.vtlGetVersion(version)
 
 
 # initialize vtl
-speaker_file_name = ctypes.c_char_p(os.path.join(os.path.dirname(os.path.abspath(__file__)),'JD2.speaker').encode())
+speaker_file_name = ctypes.c_char_p(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'JD2.speaker').encode())
 
 failure = VTL.vtlInitialize(speaker_file_name)
 if failure != 0:
@@ -137,7 +137,7 @@ def synth_block(tract_params_norm, glottis_params_norm, frame_rate=200.0):
     duration = float(number_frames) / frame_rate
 
     audio = (ctypes.c_double * int(duration * audio_sampling_rate.value + 2000))()
-    number_audio_samples = ctypes.c_int(0)
+    number_audio_samples = ctypes.c_int(int(duration * audio_sampling_rate.value + 2000))
 
     # init the arrays
     tract_params = (ctypes.c_double * (number_frames * number_vocal_tract_parameters.value))()
@@ -162,9 +162,9 @@ def synth_block(tract_params_norm, glottis_params_norm, frame_rate=200.0):
         if ii <= 1:
             glottis_params[offset_glottis + 1] = 0.0
         elif ii == 2:
-            glottis_params[offset_glottis + 1] = 500.0
+            glottis_params[offset_glottis + 1] = 4000.0
         else:
-            glottis_params[offset_glottis + 1] = 1000.0
+            glottis_params[offset_glottis + 1] = 8000.0
 
         # use the neutral settings for the rest of glottis parameters
         for jj in range(2, number_glottis_parameters.value):
@@ -199,7 +199,7 @@ def test():
     if failure != 0:
         raise ValueError('Error in vtlGetTractParams! Errorcode: %i' % failure)
 
-    num_frames = 200
+    num_frames = 600
     tract_params = []
     glottis_params = []
 
@@ -210,10 +210,16 @@ def test():
                 for i in range(len(list(glottis_param_neutral)))]
 
     for i in range(num_frames):
-        tract_params.append([min(p + random.random()/50.0, 1.0)for p in params_a])
-        glottis_params.append([min(p + random.random()/50.0, 1.0)for p in glottis_params_norm])
+        # tract_params.append([min(p + random.random()/100.0, 1.0)for p in params_a])
+        # glottis_params.append([min(p + random.random()/1000.0, 1.0)for p in glottis_params_norm])
+        tract_params.append(params_a)
+        glottis_params.append(glottis_params_norm)
 
     time_start = time.clock()
+
+    # audio = (ctypes.c_double * int(3.0 * audio_sampling_rate.value + 2000))()
+    # number_audio_samples = ctypes.c_int(int(3.0 * audio_sampling_rate.value + 2000))
+    # VTL.vtlApiTest1(speaker_file_name, audio, number_audio_samples)
 
     audio = synth_block(tract_params, glottis_params)
 

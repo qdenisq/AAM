@@ -46,7 +46,7 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-"Data/"
-"Training_obj/"
-"Obj/"
+Data/
+Training_obj/
+Obj/
 *.wav

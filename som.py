@@ -74,14 +74,14 @@ class Som:
         bmu_idx = None
         for i in np.ndindex(*self.network_shape):
             w = self.net[i].reshape(self.input_shape)
-            resp = np.dot(w, t) / np.linalg.norm(t) / np.linalg.norm(w)
+            # resp = np.dot(w, t) / np.linalg.norm(t) / np.linalg.norm(w)
             sq_dist = np.sum((w - t) **2)
-            if resp > max_resp:
-                max_resp = resp
-                bmu_idx = i
-            # if sq_dist < min_dist:
-            #     min_dist = sq_dist
+            # if resp > max_resp:
+            #     max_resp = resp
             #     bmu_idx = i
+            if sq_dist < min_dist:
+                min_dist = sq_dist
+                bmu_idx = i
         bmu = self.net[bmu_idx]
         return (bmu, bmu_idx)
 
@@ -149,9 +149,10 @@ class MultilayerSequenceSom:
 
             print("\n     Prepare training data for {} layer out of {}".format(i + 2, n_soms))
             output = []
-            for j in range(input_data.shape[1]):
+            for j in range(n_iterations[i]):
                 print('\r{} out of {}'.format(j+1, input_data.shape[1]), end='')
-                input_sample = input_data[:, j]
+                idx = j % input_data.shape[1]
+                input_sample = input_data[:, idx]
                 bmu, bmu_idx = self.soms[i].find_bmu(input_sample)
                 output.append([bmu_idx[idx] / self.shapes[i][idx] for idx in range(len(bmu_idx))])
 
@@ -186,14 +187,17 @@ class MultilayerSequenceSom:
         bmus = []
         input_data = data
         for i, som in enumerate(self.soms):
+            print("\nFinding bmus for the layer {}...".format(i + 1))
             output = []
             for j in range(input_data.shape[1]):
+                print("\r{} out of {}".format(j+1, input_data.shape[1]), end='')
                 _, bmu_idx = som.find_bmu(input_data[:, j])
                 output.append([bmu_idx[idx] / self.shapes[i][idx] for idx in range(len(bmu_idx))])
             output = np.array(output)
             bmus.append(output)
-            sequence_length = self.sequences_lengths[i + 1]
-            n = len(output) // self.sequences_lengths[i + 1]
+
+            sequence_length = self.sequences_lengths[i + 1] if (i + 1) < len(self.sequences_lengths) else 1
+            n = len(output) // sequence_length
             output = [np.array(v).reshape((sequence_length * len(self.shapes[i]))) for v in
                       np.array_split(output[:sequence_length * n], n)]
             input_data = np.array(output).transpose()

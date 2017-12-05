@@ -10,6 +10,8 @@ from scipy.stats import norm
 import time
 import utils
 import sys
+import os
+import random
 
 counter = 0
 
@@ -978,7 +980,6 @@ def test_sequence_color_som():
         else:
             plt.scatter(bmu_idx[0], bmu_idx[1], c=colors[i // num_samples_per_cluster], alpha=0.5)
 
-
     plt.legend(loc=2)
     plt.show()
 
@@ -1067,11 +1068,6 @@ def test_sequence_tonotpoic_som(sequences):
 
     plt.legend(loc=2)
     plt.show()
-
-
-
-
-
     # # show topology
     # colors = matplotlib.cm.rainbow(np.linspace(0, 1, 4))
     # markers = {"aa": 0,
@@ -1251,6 +1247,166 @@ def test_tonotopic_mssom():
     utils.save_obj(mssom, "mssom")
     return
 
-test_tonotopic_mssom()
+# test_tonotopic_mssom()
 
+
+def align_audio_duration(directory, duration):
+    import os
+    import pickle
+    import scipy.io.wavfile as wav
+    from scipy.io import wavfile
+
+    fnames = utils.get_file_list(directory)
+
+    for fname in fnames:
+        fs, signal = wav.read(os.path.join(directory, fname))
+        num_frames = int(fs * duration)
+        if len(signal) < num_frames:
+            signal = np.append(signal, [signal[-1]]*(num_frames - len(signal)))
+
+        wavfile.write('{0}/{1}'.format(directory, fname), fs, signal[:num_frames])
+#
+# data_directory = r"C:\Study\AAM\Data\timit_5_words"
+# align_audio_duration(data_directory, 0.5)
+
+words = ["go", "dog", "cat", "one", "yes"]
+# # Extract mfcc
+# print("Extracting MFCC...")
+#
+# directory = r"C:\Study\DB\SpeechCommands"
+# for word in words:
+#     print word
+#     mfcc = np.array(utils.extract_mfcc(os.path.join(directory, word)))
+#     utils.save_obj(mfcc, "mfcc_{}".format(word))
+#
+# # Add padding
+# print("Add padding...")
+# num_samples = 70
+# for word in words:
+#     print word
+#     mfccs = utils.load_obj("Obj\mfcc_{}.pkl".format(word))
+#     mfccs_padded = []
+#     for mfcc in mfccs:
+#         original_num_samples = mfcc.shape[0]
+#         mfcc_padded = None
+#         if num_samples > original_num_samples:
+#             shape = np.array(mfcc.shape)
+#             shape[0] = num_samples - original_num_samples
+#             mfcc_padded = np.vstack((mfcc, np.zeros(shape)))
+#         else:
+#             mfcc_padded = mfcc[:num_samples]
+#         mfccs_padded.append(mfcc_padded)
+#     utils.save_obj(np.array(mfccs_padded), "mfcc_padded_{}".format(word))
+#
+# # Join all data
+# print("Joining data...")
+# data = []
+# for word in words:
+#     mfccs = utils.load_obj("Obj\mfcc_padded_{}.pkl".format(word))
+#     data.extend(mfccs)
+# random.shuffle(data)
+# data = np.array(data)
+# data = np.vstack(data)
+# data = data[:, :, :2]
+# data = data.reshape((data.shape[0], data.shape[1]*2))
+# data = np.delete(data, [0, 13], axis=1)
+#
+# #
+# # # Normalize
+# # print("Normalize data by columns...")
+# # data, max_v, min_v = utils.normalize(data, axis=0, norm_by_column=True)
+#
+# print("Saving training data...")
+# utils.save_obj(data, "sc_training_data")
+#
+# # Prepare testing data
+# print("Prepare test data...")
+# data = {}
+# for word in words:
+#     mfcc = utils.load_obj("Obj\mfcc_padded_{}.pkl".format(word))
+#     random.shuffle(mfcc)
+#     mfcc = mfcc[:100]
+#     mfcc = mfcc[:, :, :, :2]
+#     mfcc = np.vstack(mfcc)
+#     mfcc = mfcc.reshape((mfcc.shape[0], mfcc.shape[1]*2))
+#     mfcc = np.delete(mfcc, [0, 13], axis=1)
+#     # mfcc = [[(mfcc[i][j] - min_v[j]) / (max_v[j] - min_v[j]) for j in range(mfcc.shape[1])] for i in range(mfcc.shape[0])]
+#     mfcc = np.array(mfcc)
+#     data[word] = mfcc
+#
+# print("Saving test data...")
+# utils.save_obj(data, "sc_testing_data")
+
+
+from som import MultilayerSequenceSom as MSSom
+
+np.random.seed(1992)
+
+num_layers = 3
+sequences_lengths = [1, 10, 7]
+layers_shapes = [(70, 70), (50, 50), (30, 30)]
+
+print "Loading training data..."
+data = utils.load_obj("Obj\sc_training_data.pkl")
+data = np.transpose(data)
+m = data.shape[0]  # input_length
+n = data.shape[1] // 10  # num of samples
+
+from som import Som
+
+n_iterations = [n, n // 10, n // 70]
+learning_rates = [0.05] * num_layers
+# establish size variables based on data
+
+
+print "Training data input vector length: {} \n number of samples: {}".format(m, n)
+
+mssom = MSSom(layers_shapes, sequences_lengths, m)
+mssom.train(data, n_iterations, learning_rates, dump=True)
+
+utils.save_obj(mssom, "mssom")
+
+
+
+#####################################################################
+
+data = utils.load_obj("Obj\sc_testing_data.pkl")
+mssom = utils.load_obj("Obj\mssom.pkl")
+i = 1
+plt.figure()
+plt.grid()
+colors = matplotlib.cm.viridis(np.linspace(0, 1, len(words)))
+all_bmus = []
+all_words = []
+all_colors = []
+for word, mfcc in data.iteritems():
+    print '\nFinding bmus for the word "{}"...'.format(word)
+    all_words.extend([word]*100)
+    all_colors.extend([i]*100)
+    samples = np.array(mfcc[:]).transpose()
+    bmus = mssom.find_bmu(samples)
+    ll_bmus = bmus[2]
+    all_bmus.append(ll_bmus)
+    axes = plt.subplot(1, len(words), i)
+
+    plt.scatter(ll_bmus[:, 0], ll_bmus[:, 1], color=colors[i-1], label=word)
+    # plt.axis('equal')
+    axes.set_xlim([0., 1.])
+    axes.set_ylim([0., 1.])
+    i += 1
+    plt.legend()
+
+plt.figure()
+plt.grid()
+all_bmus = np.vstack(np.array(all_bmus))
+plt.scatter(all_bmus[:, 0], all_bmus[:, 1], c=all_colors, cmap="viridis")
+plt.axis('equal')
+plt.xlim([0., 1.])
+plt.ylim([0., 1.])
+recs = []
+import matplotlib.patches as mpatches
+for i in range(0, len(words)):
+    recs.append(mpatches.Rectangle((0,0),1,1,fc=colors[i]))
+plt.legend(recs, data.keys(), loc=1)
+plt.show()
 
